@@ -77,6 +77,81 @@ function writeCache(key: string, stations: Station[]) {
 }
 const cellKey = (lat: number, lng: number) => `${lat.toFixed(2)},${lng.toFixed(2)}`;
 
+/* ---------- Landmark lookup (cached per station) ---------- */
+const LANDMARK_CACHE_KEY = "cf_landmark_cache_v1";
+const LANDMARK_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const LANDMARK_TYPES = [
+  "lodging",
+  "shopping_mall",
+  "tourist_attraction",
+  "restaurant",
+  "stadium",
+  "university",
+  "hospital",
+  "park",
+  "airport",
+];
+
+function readLandmarkCache(): Record<string, { ts: number; name: string }> {
+  try {
+    return JSON.parse(localStorage.getItem(LANDMARK_CACHE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+function writeLandmarkCache(map: Record<string, { ts: number; name: string }>) {
+  try {
+    localStorage.setItem(LANDMARK_CACHE_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
+
+function fetchLandmarkFor(
+  g: typeof google,
+  svc: google.maps.places.PlacesService,
+  station: Station,
+): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const cache = readLandmarkCache();
+    const cached = cache[station.id];
+    if (cached && Date.now() - cached.ts < LANDMARK_TTL_MS) {
+      resolve(cached.name || undefined);
+      return;
+    }
+    svc.nearbySearch(
+      {
+        location: { lat: station.lat, lng: station.lng },
+        radius: 400,
+        type: undefined as any,
+      },
+      (results, st) => {
+        if (st !== g.maps.places.PlacesServiceStatus.OK || !results || !results.length) {
+          resolve(undefined);
+          return;
+        }
+        const candidates = results.filter(
+          (r) =>
+            r.name &&
+            r.name.toLowerCase() !== station.name.toLowerCase() &&
+            (r.types || []).some((t) => LANDMARK_TYPES.includes(t)),
+        );
+        const ranked = candidates.sort((a, b) => {
+          const ar = (a.rating ?? 0) * Math.log((a.user_ratings_total ?? 0) + 2);
+          const br = (b.rating ?? 0) * Math.log((b.user_ratings_total ?? 0) + 2);
+          return br - ar;
+        });
+        const pick = ranked[0]?.name;
+        if (pick) {
+          cache[station.id] = { ts: Date.now(), name: pick };
+          writeLandmarkCache(cache);
+        }
+        resolve(pick);
+      },
+    );
+  });
+}
+
 /* ---------- Component ---------- */
 export const StationMap = ({
   apiKey,
@@ -211,7 +286,14 @@ export const StationMap = ({
       });
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
-        onSelect(s);
+        const svc = placesRef.current;
+        if (svc && !s.nearLandmark) {
+          fetchLandmarkFor(g, svc, s).then((landmark) => {
+            onSelect({ ...s, nearLandmark: landmark });
+          });
+        } else {
+          onSelect(s);
+        }
       });
       googleMarkersRef.current.push(marker);
       fresh.push(marker);
