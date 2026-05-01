@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
-import { TerminalLine } from "./Terminal";
 
 /* ---------- Uber/Tesla-inspired dark map style ---------- */
 const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
