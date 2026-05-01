@@ -259,24 +259,51 @@ export const StationMap = ({
     }
 
     setStatus("scanning");
+    const zoom = map.getZoom() ?? 13;
+    const radius = zoom >= 14 ? 3000 : zoom >= 12 ? 8000 : 15000;
+
+    const handle = (results: google.maps.places.PlaceResult[] | null, st: google.maps.places.PlacesServiceStatus) => {
+      const S = g.maps.places.PlacesServiceStatus;
+      if (st === S.ZERO_RESULTS) {
+        setStatus("empty");
+        writeCache(key, []);
+        return;
+      }
+      if (st === S.OVER_QUERY_LIMIT) {
+        setError("Search rate-limited. Retrying shortly…");
+        setStatus("error");
+        window.setTimeout(() => {
+          lastFetchKeyRef.current = null;
+          setError(null);
+          fetchNearby();
+        }, 30000);
+        return;
+      }
+      if (st === S.REQUEST_DENIED) {
+        setError("Places API denied. Check API key restrictions and that Places API is enabled.");
+        setStatus("error");
+        return;
+      }
+      if (st !== S.OK || !results) {
+        setStatus(`scan: ${String(st).toLowerCase()}`);
+        return;
+      }
+      const stations = results
+        .map(googlePlaceToStation)
+        .filter((s): s is Station => !!s);
+      writeCache(key, stations);
+      mergeStations(g, map, stations);
+      setStatus(stations.length ? "ready" : "empty");
+    };
+
     svc.nearbySearch(
       {
         location: { lat, lng },
-        radius: 8000, // ~8km
-        keyword: "EV charging station",
+        radius,
+        type: "electric_vehicle_charging_station" as any,
+        keyword: "EV charging",
       },
-      (results, st) => {
-        if (st !== g.maps.places.PlacesServiceStatus.OK || !results) {
-          setStatus(`scan: ${st.toLowerCase()}`);
-          return;
-        }
-        const stations = results
-          .map(googlePlaceToStation)
-          .filter((s): s is Station => !!s);
-        writeCache(key, stations);
-        mergeStations(g, map, stations);
-        setStatus("ready");
-      },
+      handle,
     );
   }
 
