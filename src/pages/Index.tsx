@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { storage, MockUser } from "@/lib/storage";
 import { MockLogin } from "@/components/MockLogin";
 import { StationMap } from "@/components/StationMap";
 import { StationSheet } from "@/components/StationSheet";
 import { Station } from "@/lib/stations";
-import { TerminalButton } from "@/components/TerminalButton";
 import { AddStationDialog } from "@/components/AddStationDialog";
 import { SidePanel } from "@/components/SidePanel";
 import { Plus, User, Zap, RefreshCw } from "lucide-react";
@@ -17,65 +16,66 @@ const Index = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
   const [refresh, setRefresh] = useState(0);
-  const [time, setTime] = useState(() => new Date());
-
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   if (!user) return <MockLogin onLogin={setUser} />;
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-background overflow-hidden">
       {/* Top bar */}
-      <header className="border-b border-border bg-card/60 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-3 py-2 gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Zap size={16} className="text-neon-green shrink-0" fill="currentColor" />
-            <h1 className="font-display text-sm sm:text-base font-bold text-neon-green glow-green truncate">
-              ChargeFinder<span className="text-neon-cyan">_RW</span>
-            </h1>
-            <span className="hidden sm:inline text-xs text-dim ml-2">v0.1.0</span>
+      <header className="border-b border-border bg-card/80 backdrop-blur-md z-20">
+        <div className="flex items-center justify-between px-4 py-3 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+              <Zap size={18} fill="currentColor" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base font-semibold text-foreground leading-tight truncate">
+                ChargeFinder
+              </h1>
+              <p className="text-[11px] text-muted-foreground leading-tight">Rwanda · EV stations</p>
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <TerminalButton variant="ghost" size="sm" onClick={() => setRefresh((r) => r + 1)} bracket={false} aria-label="refresh">
-              <RefreshCw size={12} />
-            </TerminalButton>
-            <TerminalButton variant="cyan" size="sm" onClick={() => setShowAdd(true)} bracket={false}>
-              <Plus size={12} /> ADD
-            </TerminalButton>
-            <TerminalButton variant="green" size="sm" onClick={() => setShowPanel(true)} bracket={false}>
-              <User size={12} /> {user.username}
-            </TerminalButton>
+            <button
+              onClick={() => setRefresh((r) => r + 1)}
+              aria-label="Refresh"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition"
+            >
+              <RefreshCw size={16} />
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="h-9 inline-flex items-center gap-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 text-sm font-medium border border-border transition"
+            >
+              <Plus size={16} /> <span className="hidden xs:inline">Add</span>
+            </button>
+            <button
+              onClick={() => setShowPanel(true)}
+              className="h-9 inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 text-sm font-medium transition"
+            >
+              <User size={16} />
+              <span className="hidden sm:inline truncate max-w-[100px]">{user.username}</span>
+            </button>
           </div>
-        </div>
-        {/* Status strip */}
-        <div className="px-3 pb-1.5 flex items-center justify-between text-[10px] text-dim font-mono">
-          <span>
-            <span className="text-neon-green">●</span> CONNECTED :: <span className="text-neon-cyan">gmaps.live</span>
-          </span>
-          <span className="hidden xs:inline">kigali · -1.95, 30.06</span>
-          <span>{time.toLocaleTimeString("en-GB")}</span>
         </div>
       </header>
 
       {/* Map */}
-      <main className="flex-1 relative p-2 sm:p-3">
+      <main className="flex-1 relative">
         <StationMap apiKey={apiKey} onSelect={setSelected} refreshKey={refresh} />
 
         {/* Legend */}
-        <div className="pointer-events-none absolute right-3 bottom-3 sm:right-5 sm:bottom-5 terminal-box bg-background/90 px-2.5 py-1.5 text-[10px] sm:text-xs space-y-0.5 z-10">
-          <div className="flex items-center gap-2"><span className="text-neon-green">⚡</span><span className="text-dim">google.places</span></div>
-          <div className="flex items-center gap-2"><span className="text-neon-cyan">⚡</span><span className="text-dim">custom.local</span></div>
+        <div className="pointer-events-none absolute right-3 bottom-3 bg-card/90 backdrop-blur border border-border rounded-xl px-3 py-2 text-xs space-y-1 shadow-soft z-10">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            <span className="text-muted-foreground">Public stations</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[hsl(var(--success))]" />
+            <span className="text-muted-foreground">Community added</span>
+          </div>
         </div>
       </main>
-
-      {/* Footer hint */}
-      <footer className="border-t border-border bg-card/60 px-3 py-1.5 text-[10px] text-dim font-mono flex items-center justify-between">
-        <span className="terminal-prompt">tap a pin to inspect station<span className="animate-blink">▊</span></span>
-        <span className="hidden sm:inline">simulated payments · no real transactions</span>
-      </footer>
 
       {/* Overlays */}
       <StationSheet station={selected} onClose={() => setSelected(null)} />

@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { TerminalWindow, TerminalLine } from "./Terminal";
 import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation } from "@/lib/storage";
-import { X } from "lucide-react";
+import { X, MapPin, Locate } from "lucide-react";
 
 export const AddStationDialog = ({ onClose }: { onClose: () => void }) => {
   const [, setCustom] = useLocalState<SavedStation[]>("cf_custom_stations", []);
@@ -16,8 +15,8 @@ export const AddStationDialog = ({ onClose }: { onClose: () => void }) => {
     e.preventDefault();
     const la = parseFloat(lat);
     const ln = parseFloat(lng);
-    if (!name.trim()) return setErr("name required");
-    if (Number.isNaN(la) || Number.isNaN(ln)) return setErr("invalid coordinates");
+    if (!name.trim()) return setErr("Name is required");
+    if (Number.isNaN(la) || Number.isNaN(ln)) return setErr("Invalid coordinates");
     setCustom((prev) => [
       ...prev,
       {
@@ -33,55 +32,101 @@ export const AddStationDialog = ({ onClose }: { onClose: () => void }) => {
   };
 
   const useMyLocation = () => {
-    if (!navigator.geolocation) return setErr("geolocation unavailable");
+    if (!navigator.geolocation) return setErr("Geolocation unavailable");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLat(pos.coords.latitude.toFixed(5));
         setLng(pos.coords.longitude.toFixed(5));
+        setErr(null);
       },
-      () => setErr("permission denied"),
+      () => setErr("Permission denied"),
     );
   };
 
   const inputCls =
-    "w-full bg-input border border-border px-2 py-1.5 text-sm text-neon-green font-mono outline-none focus:border-neon-green focus:shadow-glow-green rounded-sm";
+    "w-full bg-input border border-border px-3 py-2.5 text-sm text-foreground rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition placeholder:text-muted-foreground";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
-        <TerminalWindow title="add_station --new">
-          <button className="absolute right-2 top-2 z-10 text-dim hover:text-neon-green" onClick={onClose}>
-            <X size={16} />
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-[fade-in_0.2s_ease-out]"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-md bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-elevated animate-[boot_0.25s_ease-out]"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+              <MapPin size={16} />
+            </div>
+            <h2 className="text-base font-semibold text-foreground">Add a station</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted"
+          >
+            <X size={18} />
           </button>
-          <TerminalLine tone="cyan">INSERT INTO stations VALUES (...)</TerminalLine>
-          <form onSubmit={submit} className="mt-3 space-y-3">
+        </div>
+
+        <form onSubmit={submit} className="p-5 space-y-4">
+          <label className="block">
+            <span className="block text-xs font-medium text-muted-foreground mb-1.5">
+              Station name
+            </span>
+            <input
+              className={inputCls}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={60}
+              placeholder="e.g. Kigali Heights EV Hub"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-xs font-medium text-muted-foreground mb-1.5">Address</span>
+            <input
+              className={inputCls}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              maxLength={120}
+              placeholder="Street, neighborhood"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-[10px] uppercase tracking-widest text-dim block mb-1">$ name</span>
-              <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+              <span className="block text-xs font-medium text-muted-foreground mb-1.5">Latitude</span>
+              <input
+                className={inputCls}
+                value={lat}
+                onChange={(e) => setLat(e.target.value)}
+                placeholder="-1.9501"
+              />
             </label>
             <label className="block">
-              <span className="text-[10px] uppercase tracking-widest text-dim block mb-1">$ address</span>
-              <input className={inputCls} value={address} onChange={(e) => setAddress(e.target.value)} maxLength={120} />
+              <span className="block text-xs font-medium text-muted-foreground mb-1.5">Longitude</span>
+              <input
+                className={inputCls}
+                value={lng}
+                onChange={(e) => setLng(e.target.value)}
+                placeholder="30.0588"
+              />
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="block">
-                <span className="text-[10px] uppercase tracking-widest text-dim block mb-1">$ lat</span>
-                <input className={inputCls} value={lat} onChange={(e) => setLat(e.target.value)} placeholder="-1.9501" />
-              </label>
-              <label className="block">
-                <span className="text-[10px] uppercase tracking-widest text-dim block mb-1">$ lng</span>
-                <input className={inputCls} value={lng} onChange={(e) => setLng(e.target.value)} placeholder="30.0588" />
-              </label>
+          </div>
+          {err && (
+            <div className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+              {err}
             </div>
-            {err && <TerminalLine tone="amber">ERR :: {err}</TerminalLine>}
-            <div className="flex gap-2">
-              <TerminalButton type="submit" variant="green" size="lg">SAVE</TerminalButton>
-              <TerminalButton type="button" variant="cyan" size="lg" onClick={useMyLocation}>
-                USE_GPS
-              </TerminalButton>
-            </div>
-          </form>
-        </TerminalWindow>
+          )}
+          <div className="flex gap-2 pt-1">
+            <TerminalButton type="submit" variant="green" size="lg" className="flex-1">
+              Save station
+            </TerminalButton>
+            <TerminalButton type="button" variant="ghost" size="lg" onClick={useMyLocation}>
+              <Locate size={16} /> GPS
+            </TerminalButton>
+          </div>
+        </form>
       </div>
     </div>
   );
