@@ -1,16 +1,40 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Station } from "@/lib/stations";
 import { StatusBadge } from "./Terminal";
 import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
-import { X, Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink } from "lucide-react";
+import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map } from "lucide-react";
 
 export const StationSheet = ({ station, onClose }: { station: Station | null; onClose: () => void }) => {
   const [saved, setSaved] = useLocalState<SavedStation[]>("cf_saved_stations", []);
   const [flow, setFlow] = useState(false);
 
-  if (!station) return null;
+  const navUrl = useMemo(
+    () =>
+      station
+        ? `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`
+        : "",
+    [station],
+  );
+
+  if (!station) {
+    return (
+      <aside className="border-t border-border bg-card/95 backdrop-blur-md lg:w-[360px] lg:max-w-[360px] lg:border-l lg:border-t-0">
+        <div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Map size={20} />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Select a station</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Tap a charging marker to view details and open directions outside the map.
+            </p>
+          </div>
+        </div>
+      </aside>
+    );
+  }
 
   const isSaved = saved.some((s) => s.id === station.id);
 
@@ -31,20 +55,13 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
       ]);
   };
 
-  const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
-
   const openNavigation = () => {
-    // The app may be embedded in an iframe (e.g. Lovable preview). Google Maps
-    // refuses to be framed (ERR_BLOCKED_BY_RESPONSE), so we must break out of
-    // the iframe and open the URL in a real top-level browser tab.
     try {
-      // Preferred: open in a brand-new top-level tab/window
       const w = window.open(navUrl, "_blank", "noopener,noreferrer");
       if (w) return;
     } catch {
-      /* fall through */
+      /* ignore */
     }
-    // Fallback: navigate the top-most window (escapes the iframe)
     try {
       if (window.top && window.top !== window.self) {
         (window.top as Window).location.href = navUrl;
@@ -57,37 +74,23 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
   };
 
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-[fade-in_0.2s_ease-out]"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-md sm:m-4 max-h-[92vh] overflow-auto bg-card border border-border sm:rounded-2xl rounded-t-2xl shadow-elevated animate-[boot_0.25s_ease-out]"
-      >
+    <aside className="border-t border-border bg-card/95 backdrop-blur-md lg:w-[360px] lg:max-w-[360px] lg:border-l lg:border-t-0">
+      <div className="h-full max-h-[42vh] overflow-auto lg:max-h-none">
         {flow ? (
           <div className="p-5 relative">
             <button
               className="absolute right-3 top-3 z-10 text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
-              onClick={onClose}
-              aria-label="Close"
+              onClick={() => setFlow(false)}
+              aria-label="Back to station details"
             >
-              <X size={18} />
+              <ExternalLink size={18} />
             </button>
             <ChargingFlow station={station} onDone={() => setFlow(false)} />
           </div>
         ) : (
           <>
-            {/* Header */}
             <div className="relative p-5 pb-4 border-b border-border">
-              <button
-                className="absolute right-3 top-3 text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition"
-                onClick={onClose}
-                aria-label="Close"
-              >
-                <X size={18} />
-              </button>
-              <div className="flex items-start gap-3 pr-8">
+              <div className="flex items-start gap-3 pr-2">
                 <div className="h-11 w-11 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
                   <Zap size={20} fill="currentColor" />
                 </div>
@@ -111,7 +114,6 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
               </div>
             </div>
 
-            {/* Body */}
             <div className="p-5 space-y-4">
               {station.nearLandmark && (
                 <div className="flex items-start gap-3">
@@ -137,26 +139,18 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
                 {station.lat.toFixed(5)}, {station.lng.toFixed(5)}
               </div>
 
-              {/* Actions */}
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <TerminalButton variant="green" size="lg" onClick={() => setFlow(true)} className="col-span-2">
                   <Zap size={16} /> Start charging
                 </TerminalButton>
 
-                <a
-                  href={navUrl}
-                  target="_top"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    // Prefer a true new tab; if popup blocked, the default
-                    // target="_top" navigation will still escape the iframe.
-                    const w = window.open(navUrl, "_blank", "noopener,noreferrer");
-                    if (w) e.preventDefault();
-                  }}
+                <button
+                  type="button"
+                  onClick={openNavigation}
                   className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
                 >
                   <Navigation size={16} /> Navigate
-                </a>
+                </button>
 
                 <button
                   onClick={toggleSave}
@@ -168,18 +162,26 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
 
                 <a
                   href={navUrl}
-                  target="_top"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="col-span-2 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition pt-1"
                 >
                   <ExternalLink size={12} /> Open in Google Maps
                 </a>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="col-span-2 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
+                >
+                  Clear selection
+                </button>
               </div>
             </div>
           </>
         )}
       </div>
-    </div>
+    </aside>
   );
 };
 
