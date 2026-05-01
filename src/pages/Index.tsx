@@ -16,6 +16,7 @@ const Index = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [routeInfo, setRouteInfo] = useState<{ distanceText: string; durationText: string } | null>(null);
 
   if (!user) return <MockLogin onLogin={setUser} />;
 
@@ -62,7 +63,13 @@ const Index = () => {
 
       <main className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <section className="relative flex-1 min-h-[48vh] lg:min-h-0 p-3 pb-0 lg:p-3">
-          <StationMap apiKey={apiKey} onSelect={setSelected} refreshKey={refresh} />
+          <StationMap
+            apiKey={apiKey}
+            onSelect={setSelected}
+            selected={selected}
+            onRouteInfo={setRouteInfo}
+            refreshKey={refresh}
+          />
 
           <div className="pointer-events-none absolute right-6 bottom-3 bg-card/90 backdrop-blur border border-border rounded-xl px-3 py-2 text-xs space-y-1 shadow-soft z-10">
             <div className="flex items-center gap-2">
@@ -76,7 +83,7 @@ const Index = () => {
           </div>
         </section>
 
-        <StationSheet station={selected} onClose={() => setSelected(null)} />
+        <StationSheet station={selected} routeInfo={routeInfo} onClose={() => setSelected(null)} />
       </main>
 
       {/* Overlays */}

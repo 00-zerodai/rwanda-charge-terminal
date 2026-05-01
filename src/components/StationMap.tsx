@@ -4,6 +4,7 @@ import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
 import { MarkerClusterer, Renderer } from "@googlemaps/markerclusterer";
+import { fetchRoute } from "@/lib/directions";
 
 /* ---------- Distinct blue charging-station pin with ⚡ glyph ---------- */
 const STATION_PIN_SVG = (fill: string) =>
@@ -162,10 +163,14 @@ function fetchLandmarkFor(
 export const StationMap = ({
   apiKey,
   onSelect,
+  selected,
+  onRouteInfo,
   refreshKey = 0,
 }: {
   apiKey: string;
   onSelect: (s: Station) => void;
+  selected?: Station | null;
+  onRouteInfo?: (info: { distanceText: string; durationText: string } | null) => void;
   refreshKey?: number;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -174,6 +179,9 @@ export const StationMap = ({
   const googleMarkersRef = useRef<google.maps.Marker[]>([]);
   const customMarkersRef = useRef<google.maps.Marker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const userLocationRef = useRef<google.maps.LatLngLiteral | null>(null);
+  const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const idleTimerRef = useRef<number | null>(null);
   const lastFetchKeyRef = useRef<string | null>(null);
@@ -214,7 +222,40 @@ export const StationMap = ({
           markers: [],
           renderer: clusterRenderer,
         });
+        directionsRendererRef.current = new g.maps.DirectionsRenderer({
+          map,
+          suppressMarkers: true,
+          preserveViewport: true,
+          polylineOptions: {
+            strokeColor: "#3b82f6",
+            strokeOpacity: 0.85,
+            strokeWeight: 5,
+          },
+        });
         setStatus("ready");
+
+        // Best-effort geolocation (silent fallback)
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              userLocationRef.current = loc;
+              const dot = `data:image/svg+xml;utf8,${encodeURIComponent(
+                `<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='#3b82f6' opacity='0.25'/><circle cx='11' cy='11' r='6' fill='#3b82f6' stroke='#fff' stroke-width='2'/></svg>`,
+              )}`;
+              userMarkerRef.current = new g.maps.Marker({
+                position: loc,
+                map,
+                icon: { url: dot, scaledSize: new g.maps.Size(22, 22), anchor: new g.maps.Point(11, 11) },
+                zIndex: 500,
+              });
+            },
+            () => {
+              /* denied — silent */
+            },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+          );
+        }
 
         // initial fetch
         fetchNearby();
@@ -259,24 +300,51 @@ export const StationMap = ({
     }
 
     setStatus("scanning");
+    const zoom = map.getZoom() ?? 13;
+    const radius = zoom >= 14 ? 3000 : zoom >= 12 ? 8000 : 15000;
+
+    const handle = (results: google.maps.places.PlaceResult[] | null, st: google.maps.places.PlacesServiceStatus) => {
+      const S = g.maps.places.PlacesServiceStatus;
+      if (st === S.ZERO_RESULTS) {
+        setStatus("empty");
+        writeCache(key, []);
+        return;
+      }
+      if (st === S.OVER_QUERY_LIMIT) {
+        setError("Search rate-limited. Retrying shortly…");
+        setStatus("error");
+        window.setTimeout(() => {
+          lastFetchKeyRef.current = null;
+          setError(null);
+          fetchNearby();
+        }, 30000);
+        return;
+      }
+      if (st === S.REQUEST_DENIED) {
+        setError("Places API denied. Check API key restrictions and that Places API is enabled.");
+        setStatus("error");
+        return;
+      }
+      if (st !== S.OK || !results) {
+        setStatus(`scan: ${String(st).toLowerCase()}`);
+        return;
+      }
+      const stations = results
+        .map(googlePlaceToStation)
+        .filter((s): s is Station => !!s);
+      writeCache(key, stations);
+      mergeStations(g, map, stations);
+      setStatus(stations.length ? "ready" : "empty");
+    };
+
     svc.nearbySearch(
       {
         location: { lat, lng },
-        radius: 8000, // ~8km
-        keyword: "EV charging station",
+        radius,
+        type: "electric_vehicle_charging_station" as any,
+        keyword: "EV charging",
       },
-      (results, st) => {
-        if (st !== g.maps.places.PlacesServiceStatus.OK || !results) {
-          setStatus(`scan: ${st.toLowerCase()}`);
-          return;
-        }
-        const stations = results
-          .map(googlePlaceToStation)
-          .filter((s): s is Station => !!s);
-        writeCache(key, stations);
-        mergeStations(g, map, stations);
-        setStatus("ready");
-      },
+      handle,
     );
   }
 
@@ -346,6 +414,34 @@ export const StationMap = ({
     });
   }, [customStations, status, onSelect]);
 
+  /* Draw / clear route when selected station changes */
+  useEffect(() => {
+    const g = (window as any).google as typeof google | undefined;
+    const renderer = directionsRendererRef.current;
+    if (!g || !renderer) return;
+
+    if (!selected) {
+      renderer.setMap(null);
+      onRouteInfo?.(null);
+      return;
+    }
+    const origin = userLocationRef.current;
+    if (!origin) {
+      onRouteInfo?.(null);
+      return;
+    }
+    renderer.setMap(mapRef.current!);
+    fetchRoute(g, origin, { lat: selected.lat, lng: selected.lng })
+      .then(({ result, distanceText, durationText }) => {
+        renderer.setDirections(result);
+        onRouteInfo?.({ distanceText, durationText });
+      })
+      .catch(() => {
+        renderer.setMap(null);
+        onRouteInfo?.(null);
+      });
+  }, [selected, onRouteInfo]);
+
   return (
     <div className="relative h-full w-full overflow-hidden rounded-sm border border-border">
       <div ref={containerRef} className="absolute inset-0 bg-background" />
@@ -368,17 +464,42 @@ export const StationMap = ({
           {status === "cached" && <>{count} stations</>}
           {status === "loading" && "Loading map…"}
           {status === "init" && "Starting…"}
+          {status === "empty" && "No stations here — try zooming out"}
           {status === "error" && "Map failed to load"}
         </span>
       </div>
 
-      {/* Recenter button */}
-      <button
-        onClick={() => mapRef.current?.panTo(KIGALI_CENTER)}
-        className="absolute left-3 bottom-3 z-10 rounded-full bg-card/95 backdrop-blur border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-card transition shadow-soft"
-      >
-        ◎ Center on Kigali
-      </button>
+      {/* Map controls */}
+      <div className="absolute left-3 bottom-3 z-10 flex gap-2">
+        <button
+          onClick={() => {
+            const loc = userLocationRef.current;
+            if (loc) {
+              mapRef.current?.panTo(loc);
+              mapRef.current?.setZoom(15);
+            } else if ("geolocation" in navigator) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  const l = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                  userLocationRef.current = l;
+                  mapRef.current?.panTo(l);
+                  mapRef.current?.setZoom(15);
+                },
+                () => setError("Location permission denied"),
+              );
+            }
+          }}
+          className="rounded-full bg-primary text-primary-foreground border border-primary px-4 py-2 text-xs font-medium hover:bg-primary/90 transition shadow-soft"
+        >
+          ◉ My location
+        </button>
+        <button
+          onClick={() => mapRef.current?.panTo(KIGALI_CENTER)}
+          className="rounded-full bg-card/95 backdrop-blur border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-card transition shadow-soft"
+        >
+          ◎ Kigali
+        </button>
+      </div>
 
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/95 p-4 z-20">

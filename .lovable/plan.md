@@ -1,217 +1,136 @@
 
-# ChargeFinder MVP — Product & Technical Blueprint
+# ChargeFinder MVP — Build Plan
 
-This is a planning document only. No code will be written until you approve.
-
----
-
-## 1. Architecture Plan
-
-The app is a single-page React web app with four cleanly separated layers. Keeping them separate is the single most important decision — it is what prevents the navigation, popup, and "map not loading" bugs we hit in earlier iterations.
-
-```text
- ┌───────────────────────────────────────────────────┐
- │  App Shell (header, auth, dialogs)                │
- │ ┌────────────────────┐  ┌──────────────────────┐  │
- │ │  MAP LAYER         │  │  DETAIL PANEL        │  │
- │ │  - Google Map      │  │  - Station info      │  │
- │ │  - Markers         │  │  - Navigate button   │  │
- │ │  - Clustering      │  │  - Start charging    │  │
- │ │  (display only)    │  │  (all user actions)  │  │
- │ └────────────────────┘  └──────────────────────┘  │
- │           │                       ▲                │
- │           └─── selectedStation ───┘                │
- └───────────────────────────────────────────────────┘
-            │
-            ▼
-   DATA LAYER (Places API + local custom stations + cache)
-```
-
-**Components**
-
-- **Google Map (base layer)** — only renders the map, markers, and clusters. It never owns user actions like "Navigate."
-- **Station data service** — fetches from Google Places, merges in user-added stations from local storage, caches results.
-- **Detail panel (UI layer)** — bottom sheet on mobile, side panel on desktop. Holds *all* action buttons.
-- **Navigation handler** — pure HTML anchor tags pointing to Google Maps URLs. No JavaScript interception.
-
-**Interaction flow**
-
-1. Map loads → fetches nearby stations → renders markers.
-2. User taps a marker → map only updates `selectedStation` state.
-3. Detail panel (outside the map DOM) renders and shows a real `<a href>` "Navigate" link.
-4. Click opens Google Maps in a new top-level tab — never inside the preview iframe.
+The map now loads, Places search runs, and station markers cluster correctly. The remaining work focuses on **route preview**, **reliability**, and **mobile polish** — without breaking what already works.
 
 ---
 
-## 2. Google Maps Strategy
+## What's already in place (no changes needed)
 
-**Maps JavaScript API**
-- Loaded once via a single `<script>` tag with `libraries=places` and `v=weekly`.
-- Use a single loader promise to prevent duplicate script injection (the #1 cause of "map not loading" warnings).
-- Center on Kigali, zoom 13, dark style, default Google POIs visible (so users see real roads, malls, landmarks).
-
-**Places API**
-- Use `PlacesService.nearbySearch` with `keyword: "EV charging station"` and a radius (~8 km).
-- Re-query only when the user pans/zooms to a new ~1 km grid cell (debounced on `idle`).
-- Convert results to a normalized `Station` shape and render as custom SVG pin markers above the base map.
-
-**Marker overlay strategy**
-- Public stations: blue pin with ⚡ glyph.
-- Community/custom stations: green pin.
-- Cluster with `@googlemaps/markerclusterer` so dense areas don't visually break.
+- Google Maps JS + Places loader (`src/lib/google-maps.ts`)
+- Map with clustering, custom blue/green pins, recenter, status HUD (`StationMap.tsx`)
+- Nearby search with 5-min cache + 24h landmark cache
+- Station detail sheet with external "Open in Google Maps" link (anchor, no JS interception)
+- Add-station, mock login, side panel, demo payment / QR-NFC flow
 
 ---
 
-## 3. Google Cloud Setup (Validation Checklist)
+## Step 1 — Suppress noisy deprecation warnings (quick win)
 
-**APIs to enable** (in this exact list, nothing more for MVP):
-1. Maps JavaScript API
-2. Places API
-3. *(Optional later)* Geocoding API — only if you want to show human-readable addresses for custom-added stations.
+The console is spammed by `open_now is deprecated` warnings coming from `googlePlaceToStation` reading `place.opening_hours.open_now`.
 
-**API key configuration**
-- Create one **browser key** in Google Cloud Console → Credentials.
-- **Application restrictions**: HTTP referrers. Add:
-  - `http://localhost:*/*`
-  - `https://*.lovable.app/*` (Lovable preview + published)
-  - `https://your-final-domain.com/*` once you have one.
-- **API restrictions**: limit the key to exactly the 2 APIs above. This both protects against abuse and surfaces config errors early.
-- **Billing**: must be enabled on the project (you confirmed this). Without billing, Places returns `REQUEST_DENIED`.
+**Fix:** in `src/lib/stations.ts`, stop reading `open_now` directly. Either omit the field or use `place.opening_hours?.isOpen?.()` guarded with a try/catch. No UX change; cleaner logs and no risk when Google removes the property.
 
-**Common mistakes to avoid**
-| Mistake | Symptom | Fix |
+---
+
+## Step 2 — Harden Places search
+
+Current `nearbySearch` uses `keyword: "EV charging station"`, which returns mixed results.
+
+**Changes in `StationMap.tsx → fetchNearby`:**
+- Use `type: "electric_vehicle_charging_station"` (official Places type) and keep keyword as a fallback.
+- Adapt radius to current zoom (`zoom >= 14 → 3km`, `12–13 → 8km`, `<12 → 15km`) so users see relevant stations as they pan.
+- Handle `ZERO_RESULTS` explicitly: show "No stations in this area" pill instead of generic `scan: zero_results`.
+- Handle `OVER_QUERY_LIMIT` / `REQUEST_DENIED`: show a one-time toast with the cause.
+
+---
+
+## Step 3 — In-app route preview (Directions API)
+
+New: when a station is selected, show the route from the user's current location to the station **inside the map**, before they tap the external nav link.
+
+**New module `src/lib/directions.ts`:**
+- Wrap `google.maps.DirectionsService.route(...)` with `travelMode: DRIVING`.
+- Return `{ polyline, distanceText, durationText }`.
+
+**Wire-up in `StationMap.tsx`:**
+- On mount, request `navigator.geolocation.getCurrentPosition` (graceful fallback to Kigali center if denied).
+- Render a single `DirectionsRenderer` (suppress default markers; we keep our pins).
+- When `selected` changes (lift `selected` into `Index` already done), draw the route. When sheet closes, clear the renderer.
+
+**Wire-up in `StationSheet.tsx`:**
+- Show the returned `distanceText` / `durationText` above the existing "Open in Google Maps" anchor.
+- Anchor stays as-is (plain `<a target="_blank" rel="noopener noreferrer">`) — no JS interception.
+
+Requires Directions API enabled (you confirmed this).
+
+---
+
+## Step 4 — "My location" control
+
+- Add a small button next to "Center on Kigali" that pans/zooms to the user's geolocation and drops a subtle blue dot marker.
+- Re-uses the geolocation result from Step 3; no extra prompt.
+
+---
+
+## Step 5 — Mobile polish
+
+Viewport is 762×709 but real target is phones (~390×800). Tighten:
+- Make `StationSheet` a bottom sheet on `<lg` breakpoints (drag handle, snap points: peek / half / full). Currently it's a side panel that overlaps the map awkwardly on mobile.
+- Increase tap targets on header icons to 44px.
+- Hide the legend pill behind a small "i" toggle on `<sm` to free map space.
+- Ensure `100dvh` works on iOS Safari (already set).
+
+---
+
+## Step 6 — Failure handling & empty states
+
+Centralized handling so the app never silently breaks:
+
+| Failure | Detection | UX |
 |---|---|---|
-| Key restricted to wrong referrer | Gray map, "RefererNotAllowed" in console | Add Lovable preview domain |
-| Places API not enabled | `status: REQUEST_DENIED` on search | Enable in Cloud Console |
-| Loading script twice | "You have included Maps API multiple times" | Single loader promise |
-| Using `v=beta` | Random breakage | Pin to `v=weekly` |
-| No billing account | All requests denied | Link a billing account |
-| Putting key in `<head>` without callback | Race condition, `google is undefined` | Use the `&callback=` pattern |
+| Map JS fails to load | existing `loaderPromise` reject | Existing error card (keep) |
+| Places `OVER_QUERY_LIMIT` | status check | Toast: "Search rate-limited, retrying in 30s" + auto-retry |
+| Geolocation denied | `getCurrentPosition` error | Silent fallback to Kigali; route preview disabled with hint |
+| Directions `ZERO_RESULTS` | status check | Hide preview, keep external link |
+| No stations in viewport | `ZERO_RESULTS` | HUD says "No stations here — try zooming out" |
 
 ---
 
-## 4. Navigation Design (Critical — This Is What Kept Breaking)
+## Step 7 — Performance
 
-**Why it failed before**
-
-Google Maps sets `X-Frame-Options: SAMEORIGIN`. The Lovable preview runs your app in an iframe. When a `window.open` or `window.location` call is intercepted by JavaScript inside that iframe, the browser tries to load Google Maps inside the iframe and gets `ERR_BLOCKED_BY_RESPONSE`. The link works when pasted manually because then it's a top-level navigation.
-
-**The rule: navigation must be a native top-level browser action.**
-
-**Design**
-
-1. **No "Navigate" button inside marker popups or `InfoWindow`s.** Map markers only update selection state.
-2. **Navigate lives in the detail panel** (rendered outside the map's DOM subtree, in a sibling React tree).
-3. **It is a plain `<a>` tag** — not a button, not an `onClick`:
-   - `href="https://www.google.com/maps/dir/?api=1&destination=LAT,LNG"`
-   - `target="_blank"`
-   - `rel="noopener noreferrer"`
-4. **No `onClick`, no `preventDefault`, no `window.open`, no `window.location` for this action.** The browser does the right thing natively.
-5. On mobile this naturally hands off to the Google Maps app via OS URL handling.
-
-**UX pattern (Uber/Google Maps style)**
-
-```text
-[ Map fills screen ]
-        │  user taps pin
-        ▼
-[ Bottom sheet slides up ]
-   Station name · distance · rating
-   ───────────────────────────────
-   [  Navigate  →  ]   ← real <a href>
-   [  Start charging ]
-```
+- Already: clustering, cache, debounced idle refetch. Keep.
+- Add: cap `seenIdsRef` at 500 stations; when exceeded, drop oldest off-screen markers from the clusterer to keep memory flat during long sessions.
+- Lazy-load `MarkerClusterer` only after first `idle` event (saves ~15KB on first paint).
 
 ---
 
-## 5. Data Strategy
+## Technical details (for reference)
 
-**Primary source: Google Places**
-- Query: `nearbySearch({ location, radius: 8000, keyword: "EV charging station" })`.
-- Normalize each `PlaceResult` into a `Station` object: id, name, address, lat/lng, rating, openNow, types.
-- Optionally enrich with a "near landmark" lookup (one extra `nearbySearch` for the top-rated nearby POI) — cached per station for 24h.
+**Files to add**
+- `src/lib/directions.ts` — Directions API wrapper
 
-**Limit API usage (free-tier friendly)**
-- **Grid-cell de-duplication**: round map center to 2 decimal places (~1 km cell). Skip re-fetch if same cell.
-- **Debounce `idle` events** by ~600 ms.
-- **Persistent localStorage cache** (5-minute TTL for results, 24h for landmarks).
-- **Cap initial radius** at 8 km; only expand if the user explicitly zooms out.
-- Never call Places on every render or every map move.
+**Files to modify**
+- `src/lib/stations.ts` — remove `open_now` read
+- `src/components/StationMap.tsx` — Places type, adaptive radius, geolocation, DirectionsRenderer, my-location control, marker cap
+- `src/components/StationSheet.tsx` — show distance/duration; convert to bottom sheet on mobile (use existing `@/components/ui/drawer`)
+- `src/pages/Index.tsx` — pass user location down; legend toggle on small screens
 
-**Custom / user-added stations**
-- Stored in localStorage (MVP) under a separate key.
-- Rendered as a second marker layer (green) so they're visually distinct.
-- Merged into the same selection flow so the detail panel works identically.
+**No changes to**
+- `src/lib/google-maps.ts` (key + loader fine)
+- Auth, payment, QR/NFC, add-station flows
 
-**Future upgrade path** (post-MVP, not now): move custom stations to Lovable Cloud so they sync across users.
-
----
-
-## 6. UI / UX Structure
-
-**Layout**
-
-- **Mobile**: full-screen map; detail panel is a bottom sheet that appears on selection.
-- **Desktop**: split view — map on the left (~65%), detail panel docked on the right (~35%).
-- **Header**: app name, refresh, "Add station," profile.
-- **Map HUD**: status pill (top-left), legend (bottom-right), "Center on Kigali" button (bottom-left).
-
-**Hierarchy rules**
-
-- Map = display surface. Touching a marker only *selects*.
-- Panel = decision surface. All actions (Navigate, Start charging, Save) live here.
-- Dialogs (Add station, Login) are full-overlay and pause map interaction.
-
-**Visual style**
-
-- Dark theme, rounded corners, soft shadows, blue accents.
-- Clear marker differentiation (color + glyph).
-- Cluster bubbles match the marker color family.
+**APIs used**
+- Maps JavaScript API ✅
+- Places API ✅
+- Directions API ✅ (new usage in Step 3)
 
 ---
 
-## 7. Build Plan (Step-by-Step)
+## Failure prevention — common pitfalls
 
-Each step is independently verifiable — do not move to the next until the current one is proven working.
-
-| Step | Goal | Done when… |
-|---|---|---|
-| 1 | Load Google Maps script with single-loader pattern | `console.log(google.maps)` works, no duplicate-load warning |
-| 2 | Render base map centered on Kigali, default Google POIs visible | You can see roads, building names, malls |
-| 3 | Wire Places API `nearbySearch`, log raw results | Console shows real EV station results |
-| 4 | Render normalized stations as custom blue SVG markers + clustering | Pins appear over real map; clusters group correctly |
-| 5 | Build detail panel (outside map DOM); marker click sets `selectedStation` | Tapping pin opens panel with name/address/rating |
-| 6 | Add `<a href>` Navigate button in panel (no JS handler) | Click opens Google Maps in a new tab on desktop AND opens Maps app on mobile |
-| 7 | Add caching, debouncing, grid-cell dedupe, idle re-fetch | Network tab shows ≤1 Places request per pan |
-| 8 | Add "Add station" form → custom marker layer (green) | User-added pins appear and open the same panel |
-| 9 | Polish: dark style, legend, status HUD, recenter button | App feels production-quality on mobile and desktop |
+1. **`RefererNotAllowedMapError`** — caused by missing referrers. Fixed.
+2. **Blank map / grey tiles** — usually billing disabled or wrong key. Confirmed OK.
+3. **Markers don't appear** — `nearbySearch` returns `ZERO_RESULTS` silently; Step 6 surfaces this.
+4. **Nav link blocked** — caused by `onClick` + `preventDefault` on buttons. We use a plain anchor — keep it that way.
+5. **Geolocation prompt loops** — only call `getCurrentPosition` once per session; cache result.
+6. **Quota burn** — debounced idle + cell-key cache prevent re-fetching the same area; keep it.
+7. **Mobile sheet covers map** — Step 5 bottom sheet with snap points fixes this.
 
 ---
 
-## 8. Failure Prevention
+## Order of execution
 
-| Issue | Real cause | Prevention |
-|---|---|---|
-| Map doesn't load (gray box) | Script not loaded, or wrong API key referrer | Single loader promise; add Lovable domain to key referrers |
-| `google is not defined` | Code runs before script callback | Use `&callback=` and resolve a promise inside it |
-| Places returns `REQUEST_DENIED` | Places API not enabled, or key restricted to wrong API | Enable Places API; allow it in API restrictions |
-| Places returns `OVER_QUERY_LIMIT` | Too many calls per second | Debounce `idle`; grid-cell dedupe; localStorage cache |
-| "Navigate" link blocked (`ERR_BLOCKED_BY_RESPONSE`) | JS-driven navigation tries to load Maps inside iframe | Use plain `<a target="_blank">` outside the map DOM, no JS handlers |
-| Map loaded twice warning | Multiple `<script>` injections from React re-renders | Loader is a module-level singleton promise |
-| Markers pile up on re-render | Markers re-created without cleanup | Track marker refs, call `setMap(null)` before recreating |
-| Mobile gestures feel laggy | `gestureHandling` default | Set `gestureHandling: "greedy"` |
-| Custom stations disappear on reload | Stored only in component state | Persist to localStorage, hydrate on mount |
-| Costs unexpectedly high | Re-fetching on every pan | Debounce + cache + cell dedupe (covered above) |
+Step 1 → 2 → 3 → 4 → 5 → 6 → 7. Each step is independently shippable; if anything breaks, we stop and report before moving on (per your instructions).
 
----
-
-## What Approval of This Plan Means
-
-If you approve, the next session will:
-
-1. Reset the project to a minimal shell.
-2. Implement steps 1–9 above in order, each verified before the next.
-3. Keep the "Navigate" action as a plain `<a>` tag in the detail panel — never inside the map.
-4. Stay within the 2 enabled APIs (Maps JavaScript + Places).
-
-No code is being written yet. Reply "approve" (or with edits) to proceed.
+Approve and I'll implement starting at Step 1.
