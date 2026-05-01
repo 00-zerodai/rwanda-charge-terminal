@@ -10,6 +10,7 @@ import { Plus, User, Zap, RefreshCw, Info, X } from "lucide-react";
 import { GOOGLE_MAPS_API_KEY } from "@/lib/google-maps";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { SearchBar } from "@/components/SearchBar";
 
 const Index = () => {
   const [user, setUser] = useState<MockUser | null>(() => storage.getUser());
@@ -20,6 +21,7 @@ const Index = () => {
   const [refresh, setRefresh] = useState(0);
   const [routeInfo, setRouteInfo] = useState<{ distanceText: string; durationText: string } | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom: number; key: number } | null>(null);
   const isMobile = useIsMobile();
 
   if (!user) return <MockLogin onLogin={setUser} />;
@@ -73,6 +75,13 @@ const Index = () => {
             selected={selected}
             onRouteInfo={setRouteInfo}
             refreshKey={refresh}
+            flyTo={flyTo}
+          />
+
+          <SearchBar
+            onPick={({ lat, lng }) =>
+              setFlyTo({ lat, lng, zoom: 15, key: Date.now() })
+            }
           />
 
           {/* Legend — inline pill on sm+, toggle button on mobile */}
