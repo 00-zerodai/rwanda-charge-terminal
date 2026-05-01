@@ -55,24 +55,6 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
       ]);
   };
 
-  const openNavigation = () => {
-    try {
-      const w = window.open(navUrl, "_blank", "noopener,noreferrer");
-      if (w) return;
-    } catch {
-      /* ignore */
-    }
-    try {
-      if (window.top && window.top !== window.self) {
-        (window.top as Window).location.href = navUrl;
-        return;
-      }
-    } catch {
-      /* cross-origin top access blocked — fall through */
-    }
-    window.location.href = navUrl;
-  };
-
   return (
     <aside className="border-t border-border bg-card/95 backdrop-blur-md lg:w-[360px] lg:max-w-[360px] lg:border-l lg:border-t-0">
       <div className="h-full max-h-[42vh] overflow-auto lg:max-h-none">
@@ -144,13 +126,14 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
                   <Zap size={16} /> Start charging
                 </TerminalButton>
 
-                <button
-                  type="button"
-                  onClick={openNavigation}
+                <a
+                  href={navUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
                 >
                   <Navigation size={16} /> Navigate
-                </button>
+                </a>
 
                 <button
                   onClick={toggleSave}
