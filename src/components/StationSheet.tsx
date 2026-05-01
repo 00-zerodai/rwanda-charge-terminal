@@ -4,6 +4,7 @@ import { StatusBadge } from "./Terminal";
 import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
+import { toast } from "sonner";
 import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route } from "lucide-react";
 
 export const StationSheet = ({
@@ -25,6 +26,42 @@ export const StationSheet = ({
         : "",
     [station],
   );
+
+  const openNavigation = () => {
+    if (!navUrl) return;
+    // 1. Try a normal popup — works on the published site and most browsers.
+    let popup: Window | null = null;
+    try {
+      popup = window.open(navUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      popup = null;
+    }
+    if (popup) return;
+
+    // 2. Popup blocked (typical inside the Lovable preview iframe sandbox).
+    //    Try to break out of the iframe by navigating the top window.
+    try {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = navUrl;
+        return;
+      }
+      window.location.href = navUrl;
+      return;
+    } catch {
+      // 3. Strict sandbox forbids top-navigation — copy the link instead.
+      try {
+        navigator.clipboard.writeText(navUrl);
+        toast.success("Link copied", {
+          description:
+            "The preview blocked Google Maps. Paste the link in a new tab — it works normally on the deployed site.",
+        });
+      } catch {
+        toast.error("Couldn't open Google Maps", {
+          description: navUrl,
+        });
+      }
+    }
+  };
 
   if (!station) {
     return (
@@ -144,14 +181,13 @@ export const StationSheet = ({
                   <Zap size={16} /> Start charging
                 </TerminalButton>
 
-                <a
-                  href={navUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={openNavigation}
                   className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
                 >
                   <Navigation size={16} /> Navigate
-                </a>
+                </button>
 
                 <button
                   onClick={toggleSave}
@@ -161,17 +197,16 @@ export const StationSheet = ({
                   {isSaved ? "Saved" : "Save"}
                 </button>
 
-                <a
-                  href={navUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={openNavigation}
                   className="col-span-2 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition pt-1"
                 >
                   <ExternalLink size={12} /> Open in Google Maps
-                </a>
+                </button>
 
                 <p className="col-span-2 text-[11px] text-muted-foreground/80 text-center leading-snug">
-                  Opens in a new tab — Google Maps cannot run inside the in-app preview.
+                  Opens Google Maps in a new tab. If your browser blocks it inside the preview, the link is copied so you can paste it. Works normally on the deployed site.
                 </p>
 
                 <button
