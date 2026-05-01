@@ -68,7 +68,15 @@ export function getDemoStations(): Station[] {
 
 export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station | null {
   if (!p.geometry?.location || !p.place_id) return null;
-  const open = (p as any).opening_hours?.isOpen?.() ?? p.opening_hours?.open_now;
+  // Note: do NOT read `opening_hours.open_now` (deprecated, spams console).
+  // Only use `isOpen()` if Google actually exposes it on this result.
+  let open: boolean | undefined;
+  try {
+    const fn = (p as any).opening_hours?.isOpen;
+    if (typeof fn === "function") open = fn.call((p as any).opening_hours);
+  } catch {
+    open = undefined;
+  }
   return {
     id: p.place_id,
     name: p.name ?? "Unknown station",
