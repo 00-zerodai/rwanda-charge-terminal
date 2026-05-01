@@ -2,77 +2,78 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ChargeFinder Rwanda — Terminal/Hacker Design System.
-   All colors HSL. Monospace everywhere. Neon green/cyan on near-black. */
+/* ChargeFinder Rwanda — Modern dark UI (Uber/Tesla inspired) */
 
 @layer base {
   :root {
-    /* Core terminal palette */
-    --background: 215 28% 6%;          /* #0d1117-ish */
-    --foreground: 152 100% 75%;        /* phosphor green text */
+    /* Surfaces */
+    --background: 220 13% 7%;          /* near-black */
+    --foreground: 210 20% 96%;
 
-    --card: 215 28% 8%;
-    --card-foreground: 152 100% 80%;
+    --card: 220 13% 10%;
+    --card-foreground: 210 20% 96%;
 
-    --popover: 215 28% 8%;
-    --popover-foreground: 152 100% 80%;
+    --popover: 220 13% 10%;
+    --popover-foreground: 210 20% 96%;
 
-    --primary: 156 100% 50%;           /* #00ff9f neon green */
-    --primary-foreground: 215 28% 6%;
+    /* Brand: modern blue */
+    --primary: 217 91% 60%;            /* #3b82f6 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 193 100% 50%;         /* #00cfff neon blue */
-    --secondary-foreground: 215 28% 6%;
+    --secondary: 220 13% 16%;
+    --secondary-foreground: 210 20% 96%;
 
-    --muted: 215 25% 12%;
-    --muted-foreground: 156 25% 55%;
+    --muted: 220 13% 14%;
+    --muted-foreground: 215 16% 65%;
 
-    --accent: 193 100% 50%;
-    --accent-foreground: 215 28% 6%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 100% 60%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 156 60% 20%;
-    --input: 215 28% 10%;
-    --ring: 156 100% 50%;
+    --success: 152 65% 48%;
+    --warning: 38 92% 55%;
 
-    --radius: 0.125rem;
+    --border: 220 13% 18%;
+    --input: 220 13% 14%;
+    --ring: 217 91% 60%;
 
-    --neon-green: 156 100% 50%;
-    --neon-cyan: 193 100% 50%;
-    --neon-amber: 45 100% 60%;
-    --terminal-dim: 156 40% 35%;
+    --radius: 0.75rem;
 
-    --glow-green: 0 0 12px hsl(156 100% 50% / 0.6), 0 0 24px hsl(156 100% 50% / 0.25);
-    --glow-cyan: 0 0 12px hsl(193 100% 50% / 0.6), 0 0 24px hsl(193 100% 50% / 0.25);
-    --gradient-scanline: repeating-linear-gradient(
-      to bottom,
-      transparent 0px,
-      transparent 2px,
-      hsl(156 100% 50% / 0.025) 3px,
-      transparent 4px
-    );
+    /* Aliases used by older components — mapped to new modern palette */
+    --neon-green: 152 65% 55%;         /* soft green */
+    --neon-cyan: 217 91% 60%;          /* maps to brand blue */
+    --neon-amber: 38 92% 60%;
+    --terminal-dim: 215 16% 55%;
 
-    --sidebar-background: 215 28% 6%;
-    --sidebar-foreground: 156 100% 75%;
-    --sidebar-primary: 156 100% 50%;
-    --sidebar-primary-foreground: 215 28% 6%;
-    --sidebar-accent: 215 25% 12%;
-    --sidebar-accent-foreground: 156 100% 80%;
-    --sidebar-border: 156 60% 20%;
-    --sidebar-ring: 156 100% 50%;
+    --glow-green: 0 4px 24px hsl(217 91% 60% / 0.25);
+    --glow-cyan: 0 4px 24px hsl(217 91% 60% / 0.25);
+    --gradient-scanline: none;
+
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.4);
+    --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.5);
+    --shadow-lg: 0 12px 32px -8px hsl(0 0% 0% / 0.6);
+    --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.3), 0 8px 28px -4px hsl(var(--primary) / 0.35);
+
+    --sidebar-background: 220 13% 9%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 13% 14%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 220 13% 18%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
 
-  body {
-    @apply bg-background text-foreground font-mono antialiased;
-    background-image: var(--gradient-scanline);
-    text-shadow: 0 0 1px hsl(var(--primary) / 0.4);
+  html, body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
   ::selection {
@@ -81,43 +82,27 @@
   }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: hsl(var(--background)); }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--primary) / 0.3);
-    border-radius: 0;
+    background: hsl(var(--border));
+    border-radius: 999px;
   }
-  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.6); }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
 }
 
 @layer components {
   .terminal-box {
-    @apply border border-border bg-card relative;
-    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.1), inset 0 0 30px hsl(var(--primary) / 0.03);
+    @apply border border-border bg-card rounded-xl;
+    box-shadow: var(--shadow-md);
   }
 
-  .terminal-prompt::before {
-    content: "> ";
-    color: hsl(var(--primary));
-  }
+  .terminal-prompt::before { content: ""; }
 
-  .glow-green { text-shadow: var(--glow-green); }
-  .glow-cyan { text-shadow: var(--glow-cyan); }
+  .glow-green, .glow-cyan { text-shadow: none; }
 
-  .blink-cursor::after {
-    content: "▊";
-    margin-left: 2px;
-    color: hsl(var(--primary));
-    animation: blink 1s step-end infinite;
-  }
+  .blink-cursor::after { content: ""; }
 
-  .scanlines::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: var(--gradient-scanline);
-    z-index: 1;
-  }
+  .scanlines::before { display: none; }
 }
 
 @keyframes blink {
@@ -125,43 +110,33 @@
   51%, 100% { opacity: 0; }
 }
 
-@keyframes type-in {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-@keyframes flicker {
-  0%, 100% { opacity: 1; }
-  45% { opacity: 0.96; }
-  50% { opacity: 0.88; }
-  55% { opacity: 0.98; }
-}
-
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 8px hsl(var(--primary) / 0.4), 0 0 16px hsl(var(--primary) / 0.2); }
-  50% { box-shadow: 0 0 16px hsl(var(--primary) / 0.7), 0 0 32px hsl(var(--primary) / 0.35); }
-}
-
-@keyframes scan {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
+  50% { box-shadow: 0 0 0 6px hsl(var(--primary) / 0); }
 }
 
 @keyframes boot {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @layer utilities {
-  .font-display { font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace; letter-spacing: -0.02em; }
-  .text-neon-green { color: hsl(var(--neon-green)); }
-  .text-neon-cyan { color: hsl(var(--neon-cyan)); }
-  .text-neon-amber { color: hsl(var(--neon-amber)); }
-  .text-dim { color: hsl(var(--terminal-dim)); }
+  .font-display { font-family: 'Inter', sans-serif; letter-spacing: -0.02em; }
+  .text-neon-green { color: hsl(var(--success)); }
+  .text-neon-cyan { color: hsl(var(--primary)); }
+  .text-neon-amber { color: hsl(var(--warning)); }
+  .text-dim { color: hsl(var(--muted-foreground)); }
   .bg-grid {
     background-image:
-      linear-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--primary) / 0.05) 1px, transparent 1px);
+      radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0);
     background-size: 24px 24px;
   }
+  .shadow-soft { box-shadow: var(--shadow-md); }
+  .shadow-elevated { box-shadow: var(--shadow-lg); }
+  .shadow-glow-green, .shadow-glow-cyan { box-shadow: var(--shadow-glow); }
 }
