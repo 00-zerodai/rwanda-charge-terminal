@@ -170,6 +170,10 @@ export const StationSheet = ({
                   <ExternalLink size={12} /> Open in Google Maps
                 </a>
 
+                <p className="col-span-2 text-[11px] text-muted-foreground/80 text-center leading-snug">
+                  Opens in a new tab — Google Maps cannot run inside the in-app preview.
+                </p>
+
                 <button
                   type="button"
                   onClick={onClose}
