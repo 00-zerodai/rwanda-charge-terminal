@@ -11,10 +11,10 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<Variant, string> = {
-  green: "border-neon-green text-neon-green hover:bg-neon-green hover:text-primary-foreground hover:shadow-glow-green",
-  cyan: "border-neon-cyan text-neon-cyan hover:bg-neon-cyan hover:text-primary-foreground hover:shadow-glow-cyan",
-  amber: "border-neon-amber text-neon-amber hover:bg-neon-amber hover:text-primary-foreground",
-  danger: "border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground",
+  green: "border-neon-green/70 text-neon-green hover:bg-neon-green hover:text-primary-foreground hover:shadow-glow-green",
+  cyan: "border-neon-cyan/70 text-neon-cyan hover:bg-neon-cyan hover:text-primary-foreground hover:shadow-glow-cyan",
+  amber: "border-neon-amber/70 text-neon-amber hover:bg-neon-amber hover:text-primary-foreground",
+  danger: "border-destructive/60 text-destructive hover:bg-destructive/90 hover:text-destructive-foreground",
   ghost: "border-transparent text-dim hover:text-neon-green hover:border-border",
 };
 
