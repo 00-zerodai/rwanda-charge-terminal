@@ -9,7 +9,8 @@ import { SidePanel } from "@/components/SidePanel";
 import { Plus, User, Zap, RefreshCw, Info, X } from "lucide-react";
 import { GOOGLE_MAPS_API_KEY } from "@/lib/google-maps";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 const Index = () => {
   const [user, setUser] = useState<MockUser | null>(() => storage.getUser());
@@ -129,6 +130,14 @@ const Index = () => {
               side="bottom"
               className="p-0 rounded-t-2xl border-t border-border max-h-[80vh] overflow-hidden"
             >
+              <VisuallyHidden asChild>
+                <SheetTitle>{selected?.name ?? "Station details"}</SheetTitle>
+              </VisuallyHidden>
+              <VisuallyHidden asChild>
+                <SheetDescription>
+                  Charging station details, navigation and save options.
+                </SheetDescription>
+              </VisuallyHidden>
               <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-muted-foreground/30" />
               <div className="overflow-auto max-h-[calc(80vh-1rem)]">
                 <StationSheet station={selected} routeInfo={routeInfo} onClose={() => setSelected(null)} />
