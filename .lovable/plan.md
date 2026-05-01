@@ -1,136 +1,78 @@
 
-# ChargeFinder MVP — Build Plan
+# Final MVP polish — Steps 5, 6, 7 + Navigation behavior
 
-The map now loads, Places search runs, and station markers cluster correctly. The remaining work focuses on **route preview**, **reliability**, and **mobile polish** — without breaking what already works.
+## Why "Open in Google Maps" works in a new tab but is blocked inside the Lovable preview
 
----
+This is **not an API key / referrer issue** — adding `google.com` to your Maps API key referrer list will **not** fix it and is **not recommended** (referrers control which sites can call your *API key*, not which sites Google itself allows to be embedded).
 
-## What's already in place (no changes needed)
+The real cause:
 
-- Google Maps JS + Places loader (`src/lib/google-maps.ts`)
-- Map with clustering, custom blue/green pins, recenter, status HUD (`StationMap.tsx`)
-- Nearby search with 5-min cache + 24h landmark cache
-- Station detail sheet with external "Open in Google Maps" link (anchor, no JS interception)
-- Add-station, mock login, side panel, demo payment / QR-NFC flow
+1. The Lovable preview renders your app inside an `<iframe>`.
+2. `https://www.google.com/maps/...` sends an HTTP response header `X-Frame-Options: SAMEORIGIN` (and a CSP `frame-ancestors` directive).
+3. Browsers therefore refuse to display Google Maps inside any iframe whose origin is not `google.com`. The page appears blank / blocked.
+4. When you click the link in a **new tab**, there is no iframe, no ancestor restriction, and the page loads normally.
 
----
+This is enforced by Google's servers and **cannot be bypassed** from our side. There is no website-referral list, no API key setting, and no header we can add that will let `maps.google.com` render inside the Lovable preview iframe.
 
-## Step 1 — Suppress noisy deprecation warnings (quick win)
+### What we will do instead
 
-The console is spammed by `open_now is deprecated` warnings coming from `googlePlaceToStation` reading `place.opening_hours.open_now`.
-
-**Fix:** in `src/lib/stations.ts`, stop reading `open_now` directly. Either omit the field or use `place.opening_hours?.isOpen?.()` guarded with a try/catch. No UX change; cleaner logs and no risk when Google removes the property.
-
----
-
-## Step 2 — Harden Places search
-
-Current `nearbySearch` uses `keyword: "EV charging station"`, which returns mixed results.
-
-**Changes in `StationMap.tsx → fetchNearby`:**
-- Use `type: "electric_vehicle_charging_station"` (official Places type) and keep keyword as a fallback.
-- Adapt radius to current zoom (`zoom >= 14 → 3km`, `12–13 → 8km`, `<12 → 15km`) so users see relevant stations as they pan.
-- Handle `ZERO_RESULTS` explicitly: show "No stations in this area" pill instead of generic `scan: zero_results`.
-- Handle `OVER_QUERY_LIMIT` / `REQUEST_DENIED`: show a one-time toast with the cause.
+- Keep the existing **plain `<a target="_blank">`** for "Open in Google Maps" — this is the only reliable handoff and it already works.
+- Add a clear hint next to the link on mobile: *"Opens in a new tab — Google Maps cannot run inside the preview."*
+- For the in-app experience, we already render the **route polyline + ETA inside our own map** via the Directions API (Step 3, done). That is the "preview navigation" the user can see without leaving the app.
+- A true turn-by-turn navigator inside the iframe would require building our own (Mapbox/Google Directions step-by-step UI) — out of scope for MVP.
 
 ---
 
-## Step 3 — In-app route preview (Directions API)
+## Step 5 — Mobile bottom sheet for `StationSheet`
 
-New: when a station is selected, show the route from the user's current location to the station **inside the map**, before they tap the external nav link.
+Current behavior: on mobile (<lg) the sheet stacks under the map and eats ~42vh permanently, even with no station selected.
 
-**New module `src/lib/directions.ts`:**
-- Wrap `google.maps.DirectionsService.route(...)` with `travelMode: DRIVING`.
-- Return `{ polyline, distanceText, durationText }`.
+Changes:
+- Use `useIsMobile()` in `Index.tsx`. On mobile, render `StationSheet` only when `selected` is set.
+- Replace the bottom block with a Radix `Sheet` (`side="bottom"`) — already in `src/components/ui/sheet.tsx`. Rounded top corners, drag handle, close on overlay tap.
+- Desktop (≥lg) keeps the existing right side panel — unchanged.
+- Add the "opens in a new tab" hint under the Navigate button.
+- Bump header icon buttons in `Index.tsx` from `h-9 w-9` → `h-11 w-11` on mobile for 44px tap targets.
 
-**Wire-up in `StationMap.tsx`:**
-- On mount, request `navigator.geolocation.getCurrentPosition` (graceful fallback to Kigali center if denied).
-- Render a single `DirectionsRenderer` (suppress default markers; we keep our pins).
-- When `selected` changes (lift `selected` into `Index` already done), draw the route. When sheet closes, clear the renderer.
+## Step 6 — Legend toggle on small screens
 
-**Wire-up in `StationSheet.tsx`:**
-- Show the returned `distanceText` / `durationText` above the existing "Open in Google Maps" anchor.
-- Anchor stays as-is (plain `<a target="_blank" rel="noopener noreferrer">`) — no JS interception.
+Current legend pill (`Public stations` / `Community added`) is always visible bottom-right and overlaps the My-location button area on narrow viewports.
 
-Requires Directions API enabled (you confirmed this).
+Changes in `Index.tsx`:
+- On `<sm`, replace the legend with a single 32px circular "i" button bottom-right.
+- Tap toggles a small popover with the two legend rows.
+- On `≥sm`, keep the inline pill as today.
 
----
+## Step 7 — Marker cap + lazy clusterer
 
-## Step 4 — "My location" control
-
-- Add a small button next to "Center on Kigali" that pans/zooms to the user's geolocation and drops a subtle blue dot marker.
-- Re-uses the geolocation result from Step 3; no extra prompt.
-
----
-
-## Step 5 — Mobile polish
-
-Viewport is 762×709 but real target is phones (~390×800). Tighten:
-- Make `StationSheet` a bottom sheet on `<lg` breakpoints (drag handle, snap points: peek / half / full). Currently it's a side panel that overlaps the map awkwardly on mobile.
-- Increase tap targets on header icons to 44px.
-- Hide the legend pill behind a small "i" toggle on `<sm` to free map space.
-- Ensure `100dvh` works on iOS Safari (already set).
+Changes in `StationMap.tsx`:
+- **Cap at 500 markers.** When `seenIdsRef.size > 500`, evict the oldest off-screen markers: keep an insertion-order array, slice the first N that are outside `map.getBounds()`, call `setMap(null)` and `clusterer.removeMarkers(...)` on them, and delete their IDs from `seenIdsRef`.
+- **Lazy-load `MarkerClusterer`.** Remove the static `import { MarkerClusterer } from "@googlemaps/markerclusterer"` at top. Inside the first `idle` listener, do `const mod = await import("@googlemaps/markerclusterer")` and instantiate the clusterer then. Until it loads, markers are added directly via `marker.setMap(map)` and re-parented to the clusterer once ready. Saves ~15KB on first paint.
 
 ---
 
-## Step 6 — Failure handling & empty states
+## Files to modify
 
-Centralized handling so the app never silently breaks:
+- `src/pages/Index.tsx` — mobile sheet wrapper, legend toggle, larger tap targets
+- `src/components/StationSheet.tsx` — add "opens in new tab" hint; component already pure-presentational so no breaking change
+- `src/components/StationMap.tsx` — marker cap eviction, lazy `MarkerClusterer` import
 
-| Failure | Detection | UX |
-|---|---|---|
-| Map JS fails to load | existing `loaderPromise` reject | Existing error card (keep) |
-| Places `OVER_QUERY_LIMIT` | status check | Toast: "Search rate-limited, retrying in 30s" + auto-retry |
-| Geolocation denied | `getCurrentPosition` error | Silent fallback to Kigali; route preview disabled with hint |
-| Directions `ZERO_RESULTS` | status check | Hide preview, keep external link |
-| No stations in viewport | `ZERO_RESULTS` | HUD says "No stations here — try zooming out" |
+## Files NOT touched
 
----
+- `src/lib/google-maps.ts`, `src/lib/directions.ts`, `src/lib/stations.ts` — stable
+- Auth, Add station, Charging flow, QR/NFC, payment UI — untouched
+- The Navigate `<a>` tag stays a plain anchor with `target="_blank"` (do not add onClick handlers)
 
-## Step 7 — Performance
+## Risks & mitigations
 
-- Already: clustering, cache, debounced idle refetch. Keep.
-- Add: cap `seenIdsRef` at 500 stations; when exceeded, drop oldest off-screen markers from the clusterer to keep memory flat during long sessions.
-- Lazy-load `MarkerClusterer` only after first `idle` event (saves ~15KB on first paint).
+| Risk | Mitigation |
+|---|---|
+| Lazy clusterer race: markers added before module loads | Buffer them in a local array; flush into clusterer in the `.then(...)` |
+| Bottom sheet covers My-location button on small screens | Sheet only mounts when `selected` is set; map controls are obscured only while a station is open, which is expected |
+| Marker eviction removes a currently-selected pin | Skip eviction for `selected?.id` |
 
----
+## Order
 
-## Technical details (for reference)
+5 → 6 → 7. After each step the app remains shippable; if any step breaks, I stop and report before continuing.
 
-**Files to add**
-- `src/lib/directions.ts` — Directions API wrapper
-
-**Files to modify**
-- `src/lib/stations.ts` — remove `open_now` read
-- `src/components/StationMap.tsx` — Places type, adaptive radius, geolocation, DirectionsRenderer, my-location control, marker cap
-- `src/components/StationSheet.tsx` — show distance/duration; convert to bottom sheet on mobile (use existing `@/components/ui/drawer`)
-- `src/pages/Index.tsx` — pass user location down; legend toggle on small screens
-
-**No changes to**
-- `src/lib/google-maps.ts` (key + loader fine)
-- Auth, payment, QR/NFC, add-station flows
-
-**APIs used**
-- Maps JavaScript API ✅
-- Places API ✅
-- Directions API ✅ (new usage in Step 3)
-
----
-
-## Failure prevention — common pitfalls
-
-1. **`RefererNotAllowedMapError`** — caused by missing referrers. Fixed.
-2. **Blank map / grey tiles** — usually billing disabled or wrong key. Confirmed OK.
-3. **Markers don't appear** — `nearbySearch` returns `ZERO_RESULTS` silently; Step 6 surfaces this.
-4. **Nav link blocked** — caused by `onClick` + `preventDefault` on buttons. We use a plain anchor — keep it that way.
-5. **Geolocation prompt loops** — only call `getCurrentPosition` once per session; cache result.
-6. **Quota burn** — debounced idle + cell-key cache prevent re-fetching the same area; keep it.
-7. **Mobile sheet covers map** — Step 5 bottom sheet with snap points fixes this.
-
----
-
-## Order of execution
-
-Step 1 → 2 → 3 → 4 → 5 → 6 → 7. Each step is independently shippable; if anything breaks, we stop and report before moving on (per your instructions).
-
-Approve and I'll implement starting at Step 1.
+Approve and I will implement.
