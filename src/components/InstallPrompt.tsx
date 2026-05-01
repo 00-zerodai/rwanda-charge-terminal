@@ -44,7 +44,7 @@ export const InstallPrompt = () => {
             </div>
             <div className="min-w-0">
               <SheetTitle className="text-base font-semibold leading-tight">
-                Install ChargeFinder
+                Install Volta
               </SheetTitle>
               <SheetDescription className="text-xs text-muted-foreground mt-0.5">
                 Get faster access from your home screen — works like a real app.
@@ -85,7 +85,7 @@ export const InstallPrompt = () => {
                     3
                   </span>
                   <span className="flex-1 text-muted-foreground">
-                    Tap <span className="text-foreground font-medium">Add</span> — ChargeFinder will appear on your home screen.
+                    Tap <span className="text-foreground font-medium">Add</span> — Volta will appear on your home screen.
                   </span>
                 </li>
               </ol>
