@@ -1,3 +1,4 @@
+/// <reference types="google.maps" />
 import { SavedStation } from "./storage";
 
 export type Station = SavedStation & {
