@@ -218,7 +218,7 @@ export const StationSheet = ({
                 </button>
 
                 <p className="col-span-2 text-[11px] text-muted-foreground/80 text-center leading-snug">
-                  Opens Google Maps in a new tab. If your browser blocks it inside the preview, the link is copied so you can paste it. Works normally on the deployed site.
+                  Opens the Google Maps app on your phone (or the Maps website if the app isn't installed).
                 </p>
 
                 <button
