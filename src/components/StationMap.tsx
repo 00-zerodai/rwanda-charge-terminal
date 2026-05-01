@@ -395,6 +395,7 @@ export const StationMap = ({
           {status === "cached" && <>{count} stations</>}
           {status === "loading" && "Loading map…"}
           {status === "init" && "Starting…"}
+          {status === "empty" && "No stations here — try zooming out"}
           {status === "error" && "Map failed to load"}
         </span>
       </div>
