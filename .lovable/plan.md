@@ -1,47 +1,67 @@
-# Fix: "Navigate" button blocked by preview iframe
+# Native Maps handoff + "Add to Home Screen" install prompt
 
-## Root cause
+## Part A — Open native Google Maps app on mobile
 
-The Lovable preview embeds the app in a **sandboxed iframe**. A plain `<a href="https://www.google.com/maps/..." target="_blank">` inside that iframe is either:
-- silently swallowed by the popup blocker, or
-- opened as a sandboxed popup that immediately shows "www.google.com is blocked".
+Update `openNavigation()` in `src/components/StationSheet.tsx` to pick the best target per platform:
 
-This has nothing to do with the Maps API key or website referrers. Google Maps cannot be *embedded* in the preview iframe (X-Frame-Options), and the *new tab* is being killed by the iframe's sandbox attribute, which we don't control.
+- **iOS (iPhone/iPad)**: try `comgooglemaps://?daddr=<lat>,<lng>&directionsmode=driving` first (Google Maps app). If the app isn't installed, the scheme silently fails — so after a 600ms timeout we fall back to `maps://?daddr=...` (Apple Maps, always present) **or** the existing `https://www.google.com/maps/...` web URL. We'll prefer the web URL fallback so the user always lands on Google Maps, not Apple Maps.
+- **Android**: use `https://www.google.com/maps/dir/?api=1&destination=<lat>,<lng>`. Chrome on Android automatically intercepts this URL and opens the Google Maps app if installed; otherwise it stays in the browser. No custom intent URL needed and no "app not installed" error screen. This is Google's official recommendation.
+- **Desktop**: keep the current `window.open` → top-nav → clipboard fallback chain (already works).
 
-The deployed/published app (outside the Lovable preview) is **not** sandboxed, so the same link works fine there. The fix must still make it work inside the preview.
+Detection via a tiny helper in `src/lib/platform.ts`:
+```ts
+export const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+export const isAndroid = /Android/.test(navigator.userAgent);
+export const isMobile = isIOS || isAndroid;
+```
 
-## Fix
+## Part B — Installable home-screen app (manifest-only, no service worker)
 
-Replace the plain anchor with a click handler that tries multiple strategies in order, so it works in both the sandboxed preview and the published site:
+This is **not** a full PWA. No `vite-plugin-pwa`, no service worker, no offline cache — that approach breaks the Lovable preview. Instead, a plain web manifest gives us the install banner on Android and the "Add to Home Screen" flow on iOS, with the app launching fullscreen and showing a custom icon.
 
-1. **`window.open(url, "_blank", "noopener,noreferrer")`** — works in published site and most cases.
-2. If `window.open` returns `null` (popup blocked / sandboxed), **`window.top.location.href = url`** — breaks out of the iframe and navigates the top window to Google Maps. Wrapped in try/catch because cross-origin top access can throw.
-3. If even that throws (strict sandbox without `allow-top-navigation`), fall back to **copying the URL to the clipboard** and showing a toast: *"Couldn't open Google Maps from the preview. Link copied — paste it in a new tab. It will work normally on the deployed site."*
+### Files to add
 
-Apply the same handler to both the primary "Navigate" button and the secondary "Open in Google Maps" link in `StationSheet.tsx`.
+- **`public/manifest.webmanifest`** — name "ChargeFinder", short_name "ChargeFinder", `display: "standalone"`, `start_url: "/"`, `theme_color` + `background_color` from the existing primary token, icon entries pointing at the files below.
+- **`public/icon-192.png`, `public/icon-512.png`, `public/icon-512-maskable.png`, `public/apple-touch-icon.png` (180×180)** — generated from the `Zap` lightning bolt on a primary-color rounded square. I'll generate these with ImageMagick during the implementation step (no design files needed).
+- **`src/components/InstallPrompt.tsx`** — the banner component (see UX below).
+- **`src/hooks/useInstallPrompt.ts`** — captures `beforeinstallprompt`, exposes `promptInstall()`, and detects iOS standalone mode (`navigator.standalone`) to know whether the app is already installed.
 
-## Files to change
+### Files to edit
 
-- `src/components/StationSheet.tsx`
-  - Add an `openNavigation()` handler implementing the 3-step fallback above.
-  - Convert both `<a href={navUrl} target="_blank">` elements into `<button onClick={openNavigation}>` (keep identical styling so the UI doesn't shift).
-  - Use the existing `useToast` hook for the clipboard-fallback message.
-  - Update the helper text under the buttons to: *"Opens Google Maps in a new tab. If your browser blocks it inside the preview, the link is copied so you can paste it. It works normally on the deployed site."*
+- **`index.html`** — add:
+  - `<link rel="manifest" href="/manifest.webmanifest">`
+  - `<link rel="apple-touch-icon" href="/apple-touch-icon.png">`
+  - `<meta name="apple-mobile-web-app-capable" content="yes">`
+  - `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`
+  - `<meta name="apple-mobile-web-app-title" content="ChargeFinder">`
+  - `<meta name="theme-color" content="#...">` matching the primary token
+- **`src/App.tsx`** — mount `<InstallPrompt />` once at the root so it can show on any route.
+
+### Banner UX (per your choice: auto-show after 30s on mobile)
+
+`InstallPrompt` logic:
+
+1. Mount → bail immediately if any of: not mobile, already in standalone mode (already installed), inside an iframe (Lovable preview / share preview), or `localStorage.cf_install_dismissed_at` is within the last 7 days.
+2. Wait 30s after mount.
+3. **Android (Chrome/Edge)**: if `beforeinstallprompt` fired during that wait, show a bottom sheet: *"Install ChargeFinder — Get faster access from your home screen."* with **Install** (calls `prompt()`) and **Not now** buttons.
+4. **iOS Safari**: show the same sheet but with platform-specific copy: *"Tap the Share icon, then 'Add to Home Screen' to install ChargeFinder."* and a small inline diagram of the Share icon. Single **Got it** dismiss button.
+5. Either dismissal writes `cf_install_dismissed_at = Date.now()` so it won't reappear for 7 days. Successful install fires `appinstalled` → we set a permanent flag and never show again.
+
+The banner uses the existing `Sheet` component (`side="bottom"`) for visual consistency with the station sheet.
 
 ## Files NOT touched
 
-- `src/lib/google-maps.ts` — no API key / referrer changes needed (this isn't an API key problem).
-- `index.html`, Vite config — we cannot change the parent iframe's sandbox attribute; that's owned by Lovable's preview shell.
-- `StationMap.tsx`, routing, Index.tsx — unaffected.
+- No service worker, no `vite-plugin-pwa`, no Vite config changes — keeps the Lovable preview working normally.
+- `StationMap.tsx`, routing, auth — unchanged.
+- The existing desktop "Open in Google Maps" fallback chain stays.
 
-## About the unrelated console warnings
+## Risks
 
-The console shows two pre-existing Radix `Sheet` warnings (`DialogContent requires a DialogTitle`, missing `Description`). They aren't causing the navigation issue but I'll fix them in the same pass by adding a visually-hidden `SheetTitle`/`SheetDescription` to the mobile bottom sheet in `Index.tsx`.
+| Risk | Mitigation |
+|---|---|
+| iOS deep link to `comgooglemaps://` triggers a "Cannot open page" alert if the app isn't installed | Skip the scheme attempt; always send iOS users to the `https://www.google.com/maps/...` URL. iOS Safari will offer to open in the Google Maps app if it's installed via a small banner. Cleaner UX. |
+| Banner annoys returning users | 7-day dismissal cooldown + suppressed entirely once installed |
+| Banner appears in Lovable preview iframe | `window.self !== window.top` check skips it |
+| Manifest icons look bad on Android adaptive icon shapes | Include a separate `purpose: "maskable"` icon with safe-zone padding |
 
-## Verification
-
-After implementing, in the preview:
-- Click **Navigate** → a new tab should open to `google.com/maps/dir/?...`. If the browser still blocks it, a toast appears and the link is on your clipboard.
-- On the published/deployed site, clicking **Navigate** opens Google Maps directly with no fallback needed.
-
-Approve and I will implement.
+Approve and I'll implement: helper → maps handoff → icons + manifest → install hook + banner → wire into App.tsx.
