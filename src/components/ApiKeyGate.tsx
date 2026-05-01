@@ -8,9 +8,9 @@ export const ApiKeyGate = ({ onSet }: { onSet: (k: string) => void }) => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-grid">
       <div className="w-full max-w-lg">
-        <TerminalWindow title="chargefinder@kigali:~/init">
+        <TerminalWindow title="volta@kigali:~/init">
           <TerminalLine tone="green">
-            <Typewriter text="Initializing ChargeFinder Rwanda v0.1.0..." speed={14} />
+            <Typewriter text="Initializing Volta v0.1.0..." speed={14} />
           </TerminalLine>
           <TerminalLine tone="cyan">
             <span className="text-dim">[INFO]</span> Google Maps API key required to fetch live EV stations.

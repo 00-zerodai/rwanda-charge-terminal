@@ -1,6 +1,6 @@
 {
-  "name": "ChargeFinder Rwanda",
-  "short_name": "ChargeFinder",
+  "name": "Volta",
+  "short_name": "Volta",
   "description": "Find real EV charging stations across Rwanda.",
   "start_url": "/",
   "scope": "/",

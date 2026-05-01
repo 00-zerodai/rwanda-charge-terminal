@@ -12,7 +12,7 @@ export const MockLogin = ({ onLogin }: { onLogin: (u: MockUser) => void }) => {
           <div className="h-12 w-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center mb-5">
             <Zap size={22} fill="currentColor" />
           </div>
-          <h1 className="text-xl font-semibold text-foreground">Welcome to ChargeFinder</h1>
+          <h1 className="text-xl font-semibold text-foreground">Welcome to Volta</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Find EV charging stations across Rwanda.
           </p>
