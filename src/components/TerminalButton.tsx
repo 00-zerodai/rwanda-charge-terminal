@@ -11,35 +11,54 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<Variant, string> = {
-  green: "border-neon-green/70 text-neon-green hover:bg-neon-green hover:text-primary-foreground hover:shadow-glow-green",
-  cyan: "border-neon-cyan/70 text-neon-cyan hover:bg-neon-cyan hover:text-primary-foreground hover:shadow-glow-cyan",
-  amber: "border-neon-amber/70 text-neon-amber hover:bg-neon-amber hover:text-primary-foreground",
-  danger: "border-destructive/60 text-destructive hover:bg-destructive/90 hover:text-destructive-foreground",
-  ghost: "border-transparent text-dim hover:text-neon-green hover:border-border",
+  green:
+    "bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft border border-transparent",
+  cyan:
+    "bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft border border-transparent",
+  amber:
+    "bg-[hsl(var(--warning))] text-[hsl(var(--background))] hover:opacity-90 border border-transparent",
+  danger:
+    "bg-destructive text-destructive-foreground hover:bg-destructive/90 border border-transparent",
+  ghost:
+    "bg-transparent text-foreground/80 hover:text-foreground hover:bg-muted border border-border",
 };
 
 const sizeStyles: Record<Size, string> = {
-  sm: "px-2 py-1 text-xs",
-  md: "px-3 py-1.5 text-sm",
-  lg: "px-4 py-2.5 text-sm",
+  sm: "px-3 py-1.5 text-xs h-8",
+  md: "px-4 py-2 text-sm h-9",
+  lg: "px-5 py-2.5 text-sm h-11",
 };
 
+function prettify(child: any) {
+  if (typeof child !== "string") return child;
+  // Convert SCREAMING_SNAKE_CASE labels into "Title Case"
+  return child
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export const TerminalButton = forwardRef<HTMLButtonElement, Props>(
-  ({ variant = "green", size = "md", bracket = true, className, children, ...rest }, ref) => {
+  ({ variant = "green", size = "md", bracket: _b, className, children, ...rest }, ref) => {
+    const content =
+      typeof children === "string"
+        ? prettify(children)
+        : Array.isArray(children)
+        ? children.map((c, i) => <span key={i}>{typeof c === "string" ? prettify(c) : c}</span>)
+        : children;
+
     return (
       <button
         ref={ref}
         {...rest}
         className={cn(
-          "inline-flex items-center justify-center gap-1 border bg-transparent font-mono font-bold uppercase tracking-wider rounded-sm transition-all duration-150 active:translate-y-px disabled:opacity-40 disabled:cursor-not-allowed select-none",
+          "inline-flex items-center justify-center gap-1.5 font-medium rounded-lg transition-all duration-150 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           variantStyles[variant],
           sizeStyles[size],
           className,
         )}
       >
-        {bracket && <span aria-hidden>[</span>}
-        <span className="whitespace-nowrap">{children}</span>
-        {bracket && <span aria-hidden>]</span>}
+        {content}
       </button>
     );
   },

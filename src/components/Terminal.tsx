@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export const TerminalWindow = ({
-  title = "chargefinder@kigali:~",
+  title,
   children,
   className,
 }: {
@@ -10,22 +10,24 @@ export const TerminalWindow = ({
   children: ReactNode;
   className?: string;
 }) => (
-  <div className={cn("terminal-box rounded-sm overflow-hidden animate-boot", className)}>
-    <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-xs">
-      <div className="flex gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-destructive/80" />
-        <span className="h-2.5 w-2.5 rounded-full bg-neon-amber/80" />
-        <span className="h-2.5 w-2.5 rounded-full bg-neon-green/80 shadow-glow-green" />
+  <div
+    className={cn(
+      "bg-card border border-border rounded-2xl overflow-hidden shadow-elevated animate-[boot_0.3s_ease-out]",
+      className,
+    )}
+  >
+    {title && (
+      <div className="border-b border-border px-4 py-3 text-sm font-medium text-foreground/90">
+        {title}
       </div>
-      <span className="ml-2 text-dim truncate">{title}</span>
-    </div>
-    <div className="p-3 sm:p-4 relative">{children}</div>
+    )}
+    <div className="p-4 sm:p-5 relative">{children}</div>
   </div>
 );
 
 export const TerminalLine = ({
   children,
-  prompt = ">",
+  prompt: _p,
   tone = "green",
   className,
 }: {
@@ -35,23 +37,19 @@ export const TerminalLine = ({
   className?: string;
 }) => {
   const toneCls = {
-    green: "text-neon-green",
-    cyan: "text-neon-cyan",
-    amber: "text-neon-amber",
-    dim: "text-dim",
+    green: "text-foreground",
+    cyan: "text-primary",
+    amber: "text-[hsl(var(--warning))]",
+    dim: "text-muted-foreground",
   }[tone];
   return (
-    <div className={cn("flex gap-2 text-sm leading-relaxed", className)}>
-      <span className={cn("select-none", toneCls)}>{prompt}</span>
-      <span className="flex-1">{children}</span>
-    </div>
+    <div className={cn("text-sm leading-relaxed", toneCls, className)}>{children}</div>
   );
 };
 
+// Kept for API compatibility — renders text instantly without typing animation
 export const Typewriter = ({
   text,
-  speed = 18,
-  cursor = true,
   className,
   onDone,
 }: {
@@ -61,24 +59,11 @@ export const Typewriter = ({
   className?: string;
   onDone?: () => void;
 }) => {
-  const [i, setI] = useState(0);
   useEffect(() => {
-    setI(0);
+    onDone?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
-  useEffect(() => {
-    if (i >= text.length) {
-      onDone?.();
-      return;
-    }
-    const t = setTimeout(() => setI((v) => v + 1), speed);
-    return () => clearTimeout(t);
-  }, [i, text, speed, onDone]);
-  return (
-    <span className={className}>
-      {text.slice(0, i)}
-      {cursor && i < text.length && <span className="animate-blink">▊</span>}
-    </span>
-  );
+  return <span className={className}>{text}</span>;
 };
 
 export const StatusBadge = ({
@@ -89,15 +74,18 @@ export const StatusBadge = ({
   label?: string;
 }) => {
   const map = {
-    online: { color: "text-neon-green", dot: "bg-neon-green shadow-glow-green", text: "ONLINE" },
-    offline: { color: "text-destructive", dot: "bg-destructive", text: "OFFLINE" },
-    busy: { color: "text-neon-amber", dot: "bg-neon-amber", text: "IN_USE" },
-    unknown: { color: "text-dim", dot: "bg-muted-foreground", text: "UNKNOWN" },
+    online: { color: "text-[hsl(var(--success))] bg-[hsl(var(--success))]/10 border-[hsl(var(--success))]/30", dot: "bg-[hsl(var(--success))]", text: "Online" },
+    offline: { color: "text-destructive bg-destructive/10 border-destructive/30", dot: "bg-destructive", text: "Offline" },
+    busy: { color: "text-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 border-[hsl(var(--warning))]/30", dot: "bg-[hsl(var(--warning))]", text: "In use" },
+    unknown: { color: "text-muted-foreground bg-muted border-border", dot: "bg-muted-foreground", text: "Unknown" },
   }[status];
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-xs font-bold tracking-wider", map.color)}>
-      <span className={cn("h-2 w-2 rounded-full animate-pulse-glow", map.dot)} />
-      [{label ?? map.text}]
+    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border", map.color)}>
+      <span className={cn("h-1.5 w-1.5 rounded-full", map.dot)} />
+      {label ?? map.text}
     </span>
   );
 };
+
+// Re-export to keep prior import contracts
+export const _unused = useState;
