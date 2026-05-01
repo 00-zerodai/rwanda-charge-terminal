@@ -5,7 +5,7 @@ import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
 import { toast } from "sonner";
-import { buildMapsUrl, isMobile } from "@/lib/platform";
+import { buildMapsUrl, isIOS, isAndroid, openMapsOnIOS } from "@/lib/platform";
 import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route } from "lucide-react";
 
 export const StationSheet = ({
@@ -29,11 +29,18 @@ export const StationSheet = ({
   );
 
   const openNavigation = () => {
-    if (!navUrl) return;
-    // On mobile, navigate the current tab — Android Chrome / iOS Safari will
-    // offer to open the Google Maps app if installed. Opening in a new tab
-    // there is awkward and many in-app browsers block popups entirely.
-    if (isMobile) {
+    if (!station || !navUrl) return;
+
+    // iOS: try the Google Maps app first, fall back to Apple Maps if
+    // Google Maps isn't installed (Apple Maps is always present).
+    if (isIOS) {
+      openMapsOnIOS(station.lat, station.lng);
+      return;
+    }
+
+    // Android: navigate to google.com/maps — Chrome auto-opens the
+    // Google Maps app if installed, otherwise stays on the web map.
+    if (isAndroid) {
       try {
         window.location.href = navUrl;
         return;
@@ -218,7 +225,7 @@ export const StationSheet = ({
                 </button>
 
                 <p className="col-span-2 text-[11px] text-muted-foreground/80 text-center leading-snug">
-                  Opens the Google Maps app on your phone (or the Maps website if the app isn't installed).
+                  Opens the Google Maps app on your phone — falls back to Apple Maps on iPhone, or the Maps website.
                 </p>
 
                 <button
