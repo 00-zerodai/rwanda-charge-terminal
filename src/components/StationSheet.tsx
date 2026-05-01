@@ -5,6 +5,7 @@ import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
 import { toast } from "sonner";
+import { buildMapsUrl, isMobile } from "@/lib/platform";
 import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route } from "lucide-react";
 
 export const StationSheet = ({
@@ -22,13 +23,24 @@ export const StationSheet = ({
   const navUrl = useMemo(
     () =>
       station
-        ? `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`
+        ? buildMapsUrl(station.lat, station.lng)
         : "",
     [station],
   );
 
   const openNavigation = () => {
     if (!navUrl) return;
+    // On mobile, navigate the current tab — Android Chrome / iOS Safari will
+    // offer to open the Google Maps app if installed. Opening in a new tab
+    // there is awkward and many in-app browsers block popups entirely.
+    if (isMobile) {
+      try {
+        window.location.href = navUrl;
+        return;
+      } catch {
+        // fall through to desktop fallback chain
+      }
+    }
     // 1. Try a normal popup — works on the published site and most browsers.
     let popup: Window | null = null;
     try {
@@ -206,7 +218,7 @@ export const StationSheet = ({
                 </button>
 
                 <p className="col-span-2 text-[11px] text-muted-foreground/80 text-center leading-snug">
-                  Opens Google Maps in a new tab. If your browser blocks it inside the preview, the link is copied so you can paste it. Works normally on the deployed site.
+                  Opens the Google Maps app on your phone (or the Maps website if the app isn't installed).
                 </p>
 
                 <button
