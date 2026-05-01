@@ -168,12 +168,14 @@ export const StationMap = ({
   selected,
   onRouteInfo,
   refreshKey = 0,
+  flyTo,
 }: {
   apiKey: string;
   onSelect: (s: Station) => void;
   selected?: Station | null;
   onRouteInfo?: (info: { distanceText: string; durationText: string } | null) => void;
   refreshKey?: number;
+  flyTo?: { lat: number; lng: number; zoom?: number; key?: number } | null;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
