@@ -4,7 +4,7 @@ import { StatusBadge } from "./Terminal";
 import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
-import { X, Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck } from "lucide-react";
+import { X, Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink } from "lucide-react";
 
 export const StationSheet = ({ station, onClose }: { station: Station | null; onClose: () => void }) => {
   const [saved, setSaved] = useLocalState<SavedStation[]>("cf_saved_stations", []);
@@ -32,6 +32,18 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
   };
 
   const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
+
+  const openNavigation = () => {
+    try {
+      const w = window.open(navUrl, "_blank", "noopener,noreferrer");
+      if (!w) {
+        // Popup blocked — fall back to top-level navigation
+        window.location.href = navUrl;
+      }
+    } catch {
+      window.location.href = navUrl;
+    }
+  };
 
   return (
     <div
@@ -90,10 +102,24 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
 
             {/* Body */}
             <div className="p-5 space-y-4">
+              {station.nearLandmark && (
+                <div className="flex items-start gap-3">
+                  <MapPin size={16} className="text-primary mt-0.5 shrink-0" />
+                  <div className="text-sm text-foreground">
+                    Near <span className="font-medium">{station.nearLandmark}</span>
+                  </div>
+                </div>
+              )}
               {station.address && (
                 <div className="flex items-start gap-3">
-                  <MapPin size={16} className="text-muted-foreground mt-0.5 shrink-0" />
-                  <div className="text-sm text-foreground/90">{station.address}</div>
+                  <MapPin
+                    size={16}
+                    className={
+                      (station.nearLandmark ? "text-muted-foreground/60" : "text-muted-foreground") +
+                      " mt-0.5 shrink-0"
+                    }
+                  />
+                  <div className="text-sm text-muted-foreground">{station.address}</div>
                 </div>
               )}
               <div className="text-xs text-muted-foreground">
@@ -106,14 +132,12 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
                   <Zap size={16} /> Start charging
                 </TerminalButton>
 
-                <a
-                  href={navUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={openNavigation}
                   className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
                 >
                   <Navigation size={16} /> Navigate
-                </a>
+                </button>
 
                 <button
                   onClick={toggleSave}
@@ -122,6 +146,15 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
                   {isSaved ? <BookmarkCheck size={16} className="text-primary" /> : <Bookmark size={16} />}
                   {isSaved ? "Saved" : "Save"}
                 </button>
+
+                <a
+                  href={navUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="col-span-2 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition pt-1"
+                >
+                  <ExternalLink size={12} /> Open in Google Maps
+                </a>
               </div>
             </div>
           </>

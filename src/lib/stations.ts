@@ -6,6 +6,7 @@ export type Station = SavedStation & {
   status: "online" | "busy" | "offline" | "unknown";
   openNow?: boolean;
   types?: string[];
+  nearLandmark?: string;
 };
 
 const KIGALI_DEMO: Station[] = [
