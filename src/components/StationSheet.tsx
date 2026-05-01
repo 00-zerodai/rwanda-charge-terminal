@@ -34,15 +34,26 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
   const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
 
   const openNavigation = () => {
+    // The app may be embedded in an iframe (e.g. Lovable preview). Google Maps
+    // refuses to be framed (ERR_BLOCKED_BY_RESPONSE), so we must break out of
+    // the iframe and open the URL in a real top-level browser tab.
     try {
+      // Preferred: open in a brand-new top-level tab/window
       const w = window.open(navUrl, "_blank", "noopener,noreferrer");
-      if (!w) {
-        // Popup blocked — fall back to top-level navigation
-        window.location.href = navUrl;
+      if (w) return;
+    } catch {
+      /* fall through */
+    }
+    // Fallback: navigate the top-most window (escapes the iframe)
+    try {
+      if (window.top && window.top !== window.self) {
+        (window.top as Window).location.href = navUrl;
+        return;
       }
     } catch {
-      window.location.href = navUrl;
+      /* cross-origin top access blocked — fall through */
     }
+    window.location.href = navUrl;
   };
 
   return (
@@ -132,12 +143,20 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
                   <Zap size={16} /> Start charging
                 </TerminalButton>
 
-                <button
-                  onClick={openNavigation}
+                <a
+                  href={navUrl}
+                  target="_top"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    // Prefer a true new tab; if popup blocked, the default
+                    // target="_top" navigation will still escape the iframe.
+                    const w = window.open(navUrl, "_blank", "noopener,noreferrer");
+                    if (w) e.preventDefault();
+                  }}
                   className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
                 >
                   <Navigation size={16} /> Navigate
-                </button>
+                </a>
 
                 <button
                   onClick={toggleSave}
@@ -149,7 +168,7 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
 
                 <a
                   href={navUrl}
-                  target="_blank"
+                  target="_top"
                   rel="noopener noreferrer"
                   className="col-span-2 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition pt-1"
                 >
