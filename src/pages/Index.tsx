@@ -60,25 +60,26 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Map */}
-      <main className="flex-1 relative">
-        <StationMap apiKey={apiKey} onSelect={setSelected} refreshKey={refresh} />
+      <main className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        <section className="relative flex-1 min-h-[48vh] lg:min-h-0 p-3 pb-0 lg:p-3">
+          <StationMap apiKey={apiKey} onSelect={setSelected} refreshKey={refresh} />
 
-        {/* Legend */}
-        <div className="pointer-events-none absolute right-3 bottom-3 bg-card/90 backdrop-blur border border-border rounded-xl px-3 py-2 text-xs space-y-1 shadow-soft z-10">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-primary" />
-            <span className="text-muted-foreground">Public stations</span>
+          <div className="pointer-events-none absolute right-6 bottom-3 bg-card/90 backdrop-blur border border-border rounded-xl px-3 py-2 text-xs space-y-1 shadow-soft z-10">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              <span className="text-muted-foreground">Public stations</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[hsl(var(--success))]" />
+              <span className="text-muted-foreground">Community added</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[hsl(var(--success))]" />
-            <span className="text-muted-foreground">Community added</span>
-          </div>
-        </div>
+        </section>
+
+        <StationSheet station={selected} onClose={() => setSelected(null)} />
       </main>
 
       {/* Overlays */}
-      <StationSheet station={selected} onClose={() => setSelected(null)} />
       {showAdd && <AddStationDialog onClose={() => setShowAdd(false)} />}
       <SidePanel open={showPanel} onClose={() => setShowPanel(false)} onSelect={setSelected} />
     </div>
