@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { storage, MockUser } from "@/lib/storage";
 import { MockLogin } from "@/components/MockLogin";
-import { ApiKeyGate } from "@/components/ApiKeyGate";
 import { StationMap } from "@/components/StationMap";
 import { StationSheet } from "@/components/StationSheet";
 import { Station } from "@/lib/stations";
@@ -9,10 +8,11 @@ import { TerminalButton } from "@/components/TerminalButton";
 import { AddStationDialog } from "@/components/AddStationDialog";
 import { SidePanel } from "@/components/SidePanel";
 import { Plus, User, Zap, RefreshCw } from "lucide-react";
+import { GOOGLE_MAPS_API_KEY } from "@/lib/google-maps";
 
 const Index = () => {
   const [user, setUser] = useState<MockUser | null>(() => storage.getUser());
-  const [apiKey, setApiKey] = useState<string>(() => storage.getApiKey());
+  const apiKey = GOOGLE_MAPS_API_KEY;
   const [selected, setSelected] = useState<Station | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
@@ -25,7 +25,6 @@ const Index = () => {
   }, []);
 
   if (!user) return <MockLogin onLogin={setUser} />;
-  if (!apiKey) return <ApiKeyGate onSet={setApiKey} />;
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-background overflow-hidden">
@@ -54,8 +53,7 @@ const Index = () => {
         {/* Status strip */}
         <div className="px-3 pb-1.5 flex items-center justify-between text-[10px] text-dim font-mono">
           <span>
-            <span className="text-neon-green">●</span> CONNECTED ::{" "}
-            {apiKey === "DEMO" ? <span className="text-neon-amber">demo_mode</span> : <span className="text-neon-cyan">gmaps.live</span>}
+            <span className="text-neon-green">●</span> CONNECTED :: <span className="text-neon-cyan">gmaps.live</span>
           </span>
           <span className="hidden xs:inline">kigali · -1.95, 30.06</span>
           <span>{time.toLocaleTimeString("en-GB")}</span>
