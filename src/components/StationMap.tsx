@@ -200,6 +200,14 @@ export const StationMap = ({
 
   const [customStations] = useLocalState<SavedStation[]>("cf_custom_stations", []);
 
+  // Pan/zoom to an external coordinate (search bar selection).
+  useEffect(() => {
+    if (!flyTo || !mapRef.current) return;
+    mapRef.current.panTo({ lat: flyTo.lat, lng: flyTo.lng });
+    if (flyTo.zoom != null) mapRef.current.setZoom(flyTo.zoom);
+  }, [flyTo?.key, flyTo?.lat, flyTo?.lng]);
+
+
   /* Init map */
   useEffect(() => {
     if (!containerRef.current) return;
