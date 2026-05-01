@@ -469,13 +469,37 @@ export const StationMap = ({
         </span>
       </div>
 
-      {/* Recenter button */}
-      <button
-        onClick={() => mapRef.current?.panTo(KIGALI_CENTER)}
-        className="absolute left-3 bottom-3 z-10 rounded-full bg-card/95 backdrop-blur border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-card transition shadow-soft"
-      >
-        ◎ Center on Kigali
-      </button>
+      {/* Map controls */}
+      <div className="absolute left-3 bottom-3 z-10 flex gap-2">
+        <button
+          onClick={() => {
+            const loc = userLocationRef.current;
+            if (loc) {
+              mapRef.current?.panTo(loc);
+              mapRef.current?.setZoom(15);
+            } else if ("geolocation" in navigator) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  const l = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                  userLocationRef.current = l;
+                  mapRef.current?.panTo(l);
+                  mapRef.current?.setZoom(15);
+                },
+                () => setError("Location permission denied"),
+              );
+            }
+          }}
+          className="rounded-full bg-primary text-primary-foreground border border-primary px-4 py-2 text-xs font-medium hover:bg-primary/90 transition shadow-soft"
+        >
+          ◉ My location
+        </button>
+        <button
+          onClick={() => mapRef.current?.panTo(KIGALI_CENTER)}
+          className="rounded-full bg-card/95 backdrop-blur border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-card transition shadow-soft"
+        >
+          ◎ Kigali
+        </button>
+      </div>
 
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/95 p-4 z-20">
