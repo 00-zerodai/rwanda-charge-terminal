@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
-import { MarkerClusterer, Renderer } from "@googlemaps/markerclusterer";
+import type { MarkerClusterer as MarkerClustererType, Renderer } from "@googlemaps/markerclusterer";
 import { fetchRoute } from "@/lib/directions";
 
 /* ---------- Distinct blue charging-station pin with ⚡ glyph ---------- */
@@ -160,6 +160,8 @@ function fetchLandmarkFor(
 }
 
 /* ---------- Component ---------- */
+const MAX_MARKERS = 500;
+
 export const StationMap = ({
   apiKey,
   onSelect,
@@ -178,13 +180,17 @@ export const StationMap = ({
   const placesRef = useRef<google.maps.places.PlacesService | null>(null);
   const googleMarkersRef = useRef<google.maps.Marker[]>([]);
   const customMarkersRef = useRef<google.maps.Marker[]>([]);
-  const clustererRef = useRef<MarkerClusterer | null>(null);
+  const clustererRef = useRef<MarkerClustererType | null>(null);
+  const pendingMarkersRef = useRef<google.maps.Marker[]>([]);
+  const markerByIdRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const markerOrderRef = useRef<string[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const userLocationRef = useRef<google.maps.LatLngLiteral | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const idleTimerRef = useRef<number | null>(null);
   const lastFetchKeyRef = useRef<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
 
   const [status, setStatus] = useState<string>("init");
   const [count, setCount] = useState<number>(0);
@@ -217,11 +223,6 @@ export const StationMap = ({
         });
         mapRef.current = map;
         placesRef.current = new g.maps.places.PlacesService(map);
-        clustererRef.current = new MarkerClusterer({
-          map,
-          markers: [],
-          renderer: clusterRenderer,
-        });
         directionsRendererRef.current = new g.maps.DirectionsRenderer({
           map,
           suppressMarkers: true,
@@ -259,8 +260,29 @@ export const StationMap = ({
 
         // initial fetch
         fetchNearby();
+        // Lazy-load MarkerClusterer after first idle (saves bytes on first paint)
+        let clustererLoaded = false;
+        const loadClusterer = () => {
+          if (clustererLoaded) return;
+          clustererLoaded = true;
+          import("@googlemaps/markerclusterer").then((mod) => {
+            const clusterer = new mod.MarkerClusterer({
+              map,
+              markers: [],
+              renderer: clusterRenderer,
+            });
+            // Move any pending markers off the map and into the clusterer
+            if (pendingMarkersRef.current.length) {
+              pendingMarkersRef.current.forEach((m) => m.setMap(null));
+              clusterer.addMarkers(pendingMarkersRef.current);
+              pendingMarkersRef.current = [];
+            }
+            clustererRef.current = clusterer;
+          });
+        };
         // debounced fetch on pan/zoom idle
         map.addListener("idle", () => {
+          loadClusterer();
           if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
           idleTimerRef.current = window.setTimeout(fetchNearby, 600);
         });
@@ -375,10 +397,55 @@ export const StationMap = ({
         }
       });
       googleMarkersRef.current.push(marker);
+      markerByIdRef.current.set(s.id, marker);
+      markerOrderRef.current.push(s.id);
       fresh.push(marker);
     });
-    if (fresh.length && clustererRef.current) {
-      clustererRef.current.addMarkers(fresh);
+    if (fresh.length) {
+      if (clustererRef.current) {
+        clustererRef.current.addMarkers(fresh);
+      } else {
+        // Clusterer not loaded yet — show markers directly and queue them
+        fresh.forEach((m) => m.setMap(map));
+        pendingMarkersRef.current.push(...fresh);
+      }
+    }
+    // Cap markers at MAX_MARKERS — evict oldest off-screen first
+    if (markerOrderRef.current.length > MAX_MARKERS) {
+      const overflow = markerOrderRef.current.length - MAX_MARKERS;
+      const bounds = map.getBounds();
+      const toEvict: { id: string; marker: google.maps.Marker }[] = [];
+      const remaining: string[] = [];
+      let evictedCount = 0;
+      for (const id of markerOrderRef.current) {
+        if (evictedCount >= overflow) {
+          remaining.push(id);
+          continue;
+        }
+        if (id === selectedIdRef.current) {
+          remaining.push(id);
+          continue;
+        }
+        const m = markerByIdRef.current.get(id);
+        const pos = m?.getPosition();
+        const offscreen = !!bounds && !!pos && !bounds.contains(pos);
+        if (m && offscreen) {
+          toEvict.push({ id, marker: m });
+          evictedCount++;
+        } else {
+          remaining.push(id);
+        }
+      }
+      if (toEvict.length) {
+        const evictMarkers = toEvict.map((e) => e.marker);
+        if (clustererRef.current) clustererRef.current.removeMarkers(evictMarkers);
+        evictMarkers.forEach((m) => m.setMap(null));
+        toEvict.forEach(({ id }) => {
+          markerByIdRef.current.delete(id);
+          seenIdsRef.current.delete(id);
+        });
+        markerOrderRef.current = remaining;
+      }
     }
     setCount(seenIdsRef.current.size);
     return fresh;
@@ -418,6 +485,7 @@ export const StationMap = ({
   useEffect(() => {
     const g = (window as any).google as typeof google | undefined;
     const renderer = directionsRendererRef.current;
+    selectedIdRef.current = selected?.id ?? null;
     if (!g || !renderer) return;
 
     if (!selected) {
