@@ -4,9 +4,17 @@ import { StatusBadge } from "./Terminal";
 import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
-import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map } from "lucide-react";
+import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route } from "lucide-react";
 
-export const StationSheet = ({ station, onClose }: { station: Station | null; onClose: () => void }) => {
+export const StationSheet = ({
+  station,
+  routeInfo,
+  onClose,
+}: {
+  station: Station | null;
+  routeInfo?: { distanceText: string; durationText: string } | null;
+  onClose: () => void;
+}) => {
   const [saved, setSaved] = useLocalState<SavedStation[]>("cf_saved_stations", []);
   const [flow, setFlow] = useState(false);
 
@@ -120,6 +128,16 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
               <div className="text-xs text-muted-foreground">
                 {station.lat.toFixed(5)}, {station.lng.toFixed(5)}
               </div>
+
+              {routeInfo && (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+                  <Route size={14} className="text-primary" />
+                  <span className="font-medium text-foreground">{routeInfo.durationText}</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">{routeInfo.distanceText}</span>
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Driving</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <TerminalButton variant="green" size="lg" onClick={() => setFlow(true)} className="col-span-2">
