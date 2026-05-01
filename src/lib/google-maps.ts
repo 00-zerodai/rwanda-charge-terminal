@@ -1,5 +1,9 @@
 /// <reference types="google.maps" />
 
+// 👇 Replace this value with your own Google Maps JavaScript API key.
+//    Required APIs: Maps JavaScript API + Places API.
+export const GOOGLE_MAPS_API_KEY = "AIzaSyBYW91GvVo_VEHbVAnjfXLVh1hi_1bRjso";
+
 let loaderPromise: Promise<typeof google> | null = null;
 
 export function loadGoogleMaps(apiKey: string): Promise<typeof google> {
