@@ -3,48 +3,54 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
+import { MarkerClusterer, Renderer } from "@googlemaps/markerclusterer";
 
-/* ---------- Uber/Tesla-inspired dark map style ---------- */
-const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#0d1117" }] },
-  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#5a7d72" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#0d1117" }, { weight: 2 }] },
-
-  { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
-  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#9ad9c1" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#5a7d72" }] },
-
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#0f1a14" }] },
-
-  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#1a2128" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#0d1117" }] },
-  { featureType: "road", elementType: "labels", stylers: [{ visibility: "off" }] },
-  { featureType: "road.highway", elementType: "geometry.fill", stylers: [{ color: "#2a3540" }] },
-  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#0d1117" }] },
-  { featureType: "road.arterial", elementType: "geometry.fill", stylers: [{ color: "#222a33" }] },
-  { featureType: "road.local", elementType: "geometry.fill", stylers: [{ color: "#171c22" }] },
-
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#04090d" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d6e80" }] },
-
-  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#0d1117" }] },
-  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#0e1410" }] },
-];
-
-/* ---------- Modern marker (SVG, no shadow ring on map) ---------- */
-const PIN_SVG = (color: string, accent: string) =>
+/* ---------- Distinct blue charging-station pin with ⚡ glyph ---------- */
+const STATION_PIN_SVG = (fill: string) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'>
-      <circle cx='18' cy='18' r='14' fill='${color}' opacity='0.18'/>
-      <circle cx='18' cy='18' r='10' fill='#0d1117' stroke='${color}' stroke-width='1.5'/>
-      <path d='M18 11.5 L14.5 19 H17.5 L16.5 24.5 L21.5 16.5 H18.5 L19.5 11.5 Z'
-            fill='${color}' stroke='${accent}' stroke-width='0.4' stroke-linejoin='round'/>
+    `<svg xmlns='http://www.w3.org/2000/svg' width='44' height='54' viewBox='0 0 44 54'>
+      <defs>
+        <filter id='s' x='-20%' y='-20%' width='140%' height='140%'>
+          <feDropShadow dx='0' dy='2' stdDeviation='2' flood-color='#000' flood-opacity='0.35'/>
+        </filter>
+      </defs>
+      <path filter='url(#s)' d='M22 2C11.5 2 3 10.4 3 20.7c0 13.7 17.3 29.5 18 30.2.6.5 1.4.5 2 0 .7-.7 18-16.5 18-30.2C41 10.4 32.5 2 22 2z'
+            fill='${fill}' stroke='#ffffff' stroke-width='2'/>
+      <circle cx='22' cy='20' r='11' fill='#ffffff'/>
+      <path d='M23.5 12 L17.5 22 H21 L20 28 L26.5 18 H23 L24 12 Z'
+            fill='${fill}' stroke='${fill}' stroke-width='0.4' stroke-linejoin='round'/>
     </svg>`,
   )}`;
+
+/* Cluster bubble renderer (blue, like reference image) */
+const clusterRenderer: Renderer = {
+  render: ({ count, position }, stats) => {
+    const max = stats.clusters.markers.max || 1;
+    const ratio = count / max;
+    const size = 44 + Math.round(ratio * 24); // 44..68
+    const svg = `data:image/svg+xml;utf8,${encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'>
+        <circle cx='${size / 2}' cy='${size / 2}' r='${size / 2 - 2}' fill='#3b82f6' opacity='0.25'/>
+        <circle cx='${size / 2}' cy='${size / 2}' r='${size / 2 - 8}' fill='#3b82f6' stroke='#ffffff' stroke-width='3'/>
+      </svg>`,
+    )}`;
+    return new google.maps.Marker({
+      position,
+      icon: {
+        url: svg,
+        scaledSize: new google.maps.Size(size, size),
+        anchor: new google.maps.Point(size / 2, size / 2),
+      },
+      label: {
+        text: String(count),
+        color: "#ffffff",
+        fontSize: "13px",
+        fontWeight: "700",
+      },
+      zIndex: 1000 + count,
+    });
+  },
+};
 
 /* ---------- Cache (5 min TTL, persisted) ---------- */
 const CACHE_KEY = "cf_places_cache_v1";
@@ -167,6 +173,7 @@ export const StationMap = ({
   const placesRef = useRef<google.maps.places.PlacesService | null>(null);
   const googleMarkersRef = useRef<google.maps.Marker[]>([]);
   const customMarkersRef = useRef<google.maps.Marker[]>([]);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const idleTimerRef = useRef<number | null>(null);
   const lastFetchKeyRef = useRef<string | null>(null);
@@ -195,12 +202,18 @@ export const StationMap = ({
           zoomControl: true,
           zoomControlOptions: { position: g.maps.ControlPosition.RIGHT_CENTER },
           gestureHandling: "greedy",
-          clickableIcons: false,
-          backgroundColor: "#0d1117",
-          styles: DARK_MAP_STYLE,
+          clickableIcons: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
         });
         mapRef.current = map;
         placesRef.current = new g.maps.places.PlacesService(map);
+        clustererRef.current = new MarkerClusterer({
+          map,
+          markers: [],
+          renderer: clusterRenderer,
+        });
         setStatus("ready");
 
         // initial fetch
@@ -274,15 +287,13 @@ export const StationMap = ({
       seenIdsRef.current.add(s.id);
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
-        map,
         title: s.name,
         optimized: true,
         icon: {
-          url: PIN_SVG("#3b82f6", "#0d1117"),
-          scaledSize: new g.maps.Size(36, 36),
-          anchor: new g.maps.Point(18, 18),
+          url: STATION_PIN_SVG("#2563eb"),
+          scaledSize: new g.maps.Size(44, 54),
+          anchor: new g.maps.Point(22, 52),
         },
-        animation: g.maps.Animation.DROP,
       });
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
@@ -298,6 +309,9 @@ export const StationMap = ({
       googleMarkersRef.current.push(marker);
       fresh.push(marker);
     });
+    if (fresh.length && clustererRef.current) {
+      clustererRef.current.addMarkers(fresh);
+    }
     setCount(seenIdsRef.current.size);
     return fresh;
   }
@@ -318,10 +332,11 @@ export const StationMap = ({
         map,
         title: s.name,
         icon: {
-          url: PIN_SVG("#22c55e", "#0d1117"),
-          scaledSize: new g.maps.Size(36, 36),
-          anchor: new g.maps.Point(18, 18),
+          url: STATION_PIN_SVG("#16a34a"),
+          scaledSize: new g.maps.Size(44, 54),
+          anchor: new g.maps.Point(22, 52),
         },
+        zIndex: 999,
       });
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
