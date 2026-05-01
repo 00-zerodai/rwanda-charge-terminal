@@ -21,11 +21,11 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     if (step === "connect" && mode) {
       setLogs([]);
       const seq = [
-        `INIT ${mode.toUpperCase()}_HANDSHAKE...`,
-        "DISCOVERING CHARGER ID...",
-        `CHARGER FOUND: ${station.id.slice(0, 8).toUpperCase()}`,
-        "VERIFYING SIGNATURE... OK",
-        "CHARGER LINKED ✓",
+        `Initiating ${mode.toUpperCase()} handshake…`,
+        "Discovering charger…",
+        `Charger found: ${station.id.slice(0, 8).toUpperCase()}`,
+        "Verifying signature… OK",
+        "Charger linked ✓",
       ];
       seq.forEach((line, i) =>
         setTimeout(() => {
@@ -40,10 +40,10 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     if (step === "processing") {
       setLogs([]);
       const seq = [
-        `INIT TX :: amount=${amount} RWF :: method=${method}`,
-        "CONTACTING PAYMENT GATEWAY...",
-        "AUTHORIZING...",
-        "PAYMENT SUCCESSFUL [DEMO MODE] ✓",
+        `Authorizing ${amount.toLocaleString()} RWF via ${method}…`,
+        "Contacting payment gateway…",
+        "Authorizing…",
+        "Payment successful (demo mode) ✓",
       ];
       seq.forEach((line, i) =>
         setTimeout(() => {
@@ -55,9 +55,9 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     if (step === "charging") {
       setLogs([]);
       const seq = [
-        "CHARGER ENGAGED",
-        "BATTERY: 32% → 47% → 68% → 85%",
-        "SESSION COMPLETE :: 12.4 kWh delivered",
+        "Charger engaged",
+        "Battery: 32% → 47% → 68% → 85%",
+        "Session complete · 12.4 kWh delivered",
       ];
       seq.forEach((line, i) =>
         setTimeout(() => {
@@ -83,16 +83,14 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     <div className="space-y-3">
       {step === "connect" && !mode && (
         <>
-          <TerminalLine tone="cyan">
-            <Typewriter text={`> link_charger --station="${station.name}"`} cursor={false} speed={10} />
-          </TerminalLine>
-          <p className="text-xs text-dim mt-2">Choose a connection method:</p>
+          <h3 className="text-base font-semibold text-foreground">Connect to charger</h3>
+          <p className="text-sm text-muted-foreground mt-1">Choose how to link with {station.name}.</p>
           <div className="flex flex-wrap gap-2">
             <TerminalButton variant="green" size="lg" onClick={() => setMode("qr")}>
-              SCAN_QR
+              Scan QR
             </TerminalButton>
-            <TerminalButton variant="cyan" size="lg" onClick={() => setMode("nfc")}>
-              TAP_NFC
+            <TerminalButton variant="ghost" size="lg" onClick={() => setMode("nfc")}>
+              Tap NFC
             </TerminalButton>
           </div>
         </>
@@ -110,16 +108,16 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
 
       {step === "method" && (
         <>
-          <TerminalLine tone="cyan">SELECT_PAYMENT_METHOD</TerminalLine>
+          <h3 className="text-base font-semibold text-foreground">Choose payment method</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
             <TerminalButton variant="green" size="lg" onClick={() => { setMethod("CARD"); setStep("card"); }}>
-              CARD
+              Card
             </TerminalButton>
             <TerminalButton variant="amber" size="lg" onClick={() => { setMethod("MTN_MOMO"); setStep("momo"); }}>
-              MTN_MOMO
+              MTN MoMo
             </TerminalButton>
             <TerminalButton variant="danger" size="lg" onClick={() => { setMethod("AIRTEL_MONEY"); setStep("momo"); }}>
-              AIRTEL_MONEY
+              Airtel Money
             </TerminalButton>
           </div>
         </>
@@ -134,16 +132,14 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
 
       {step === "done" && (
         <div className="space-y-3">
-          <TerminalLine tone="green">
-            <span className="glow-green font-bold">SESSION_TERMINATED :: SUCCESS ✓</span>
-          </TerminalLine>
-          <div className="terminal-box p-3 text-sm space-y-1">
-            <div className="flex justify-between"><span className="text-dim">station</span><span>{station.name}</span></div>
-            <div className="flex justify-between"><span className="text-dim">delivered</span><span className="text-neon-cyan">12.4 kWh</span></div>
-            <div className="flex justify-between"><span className="text-dim">paid</span><span className="text-neon-green">{amount.toLocaleString()} RWF</span></div>
-            <div className="flex justify-between"><span className="text-dim">method</span><span>{method}</span></div>
+          <h3 className="text-base font-semibold text-[hsl(var(--success))]">Charging complete</h3>
+          <div className="bg-muted/30 border border-border rounded-xl p-4 text-sm space-y-2">
+            <div className="flex justify-between"><span className="text-muted-foreground">Station</span><span className="font-medium">{station.name}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Delivered</span><span className="text-primary font-medium">12.4 kWh</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="font-medium">{amount.toLocaleString()} RWF</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Method</span><span>{method}</span></div>
           </div>
-          <TerminalButton variant="green" size="lg" onClick={onDone}>EXIT</TerminalButton>
+          <TerminalButton variant="green" size="lg" onClick={onDone} className="w-full">Done</TerminalButton>
         </div>
       )}
     </div>
