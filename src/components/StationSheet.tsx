@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Station } from "@/lib/stations";
-import { TerminalWindow, TerminalLine, StatusBadge, Typewriter } from "./Terminal";
+import { StatusBadge } from "./Terminal";
 import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
-import { X, Star } from "lucide-react";
+import { X, Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck } from "lucide-react";
 
 export const StationSheet = ({ station, onClose }: { station: Station | null; onClose: () => void }) => {
   const [saved, setSaved] = useLocalState<SavedStation[]>("cf_saved_stations", []);
@@ -31,86 +31,101 @@ export const StationSheet = ({ station, onClose }: { station: Station | null; on
       ]);
   };
 
-  const navigate = () => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
-    window.open(url, "_blank", "noopener");
-  };
+  const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-background/70 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-[fade-in_0.2s_ease-out]"
+      onClick={onClose}
+    >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-lg sm:m-4 max-h-[90vh] overflow-auto"
+        className="w-full sm:max-w-md sm:m-4 max-h-[92vh] overflow-auto bg-card border border-border sm:rounded-2xl rounded-t-2xl shadow-elevated animate-[boot_0.25s_ease-out]"
       >
-        <TerminalWindow title={`station@${station.id.slice(0, 10)}`}>
-          <button
-            className="absolute right-2 top-2 z-10 text-dim hover:text-neon-green"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
-
-          {flow ? (
+        {flow ? (
+          <div className="p-5 relative">
+            <button
+              className="absolute right-3 top-3 z-10 text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
             <ChargingFlow station={station} onDone={() => setFlow(false)} />
-          ) : (
-            <>
-              <TerminalLine tone="cyan">
-                <Typewriter text={`SELECT * FROM stations WHERE id='${station.id.slice(0, 8)}';`} speed={8} cursor={false} />
-              </TerminalLine>
-              <div className="mt-3 space-y-1.5 text-sm">
-                <div className="grid grid-cols-[80px_1fr] gap-2">
-                  <span className="text-dim">name</span>
-                  <span className="text-neon-green font-bold glow-green">{station.name}</span>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="relative p-5 pb-4 border-b border-border">
+              <button
+                className="absolute right-3 top-3 text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition"
+                onClick={onClose}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+              <div className="flex items-start gap-3 pr-8">
+                <div className="h-11 w-11 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                  <Zap size={20} fill="currentColor" />
                 </div>
-                <div className="grid grid-cols-[80px_1fr] gap-2">
-                  <span className="text-dim">address</span>
-                  <span className="text-foreground/90">{station.address || "—"}</span>
-                </div>
-                <div className="grid grid-cols-[80px_1fr] gap-2">
-                  <span className="text-dim">status</span>
-                  <StatusBadge status={station.status} />
-                </div>
-                <div className="grid grid-cols-[80px_1fr] gap-2">
-                  <span className="text-dim">rating</span>
-                  <span className="flex items-center gap-1 text-neon-amber">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-foreground leading-tight truncate">
+                    {station.name}
+                  </h2>
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                    <StatusBadge status={station.status} />
                     {station.rating ? (
-                      <>
-                        <Star size={12} fill="currentColor" /> {station.rating.toFixed(1)} / 5.0
-                      </>
-                    ) : (
-                      <span className="text-dim">N/A</span>
-                    )}
-                  </span>
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Star size={12} className="text-[hsl(var(--warning))]" fill="currentColor" />
+                        {station.rating.toFixed(1)}
+                      </span>
+                    ) : null}
+                    <span className="text-xs text-muted-foreground">
+                      {station.source === "google" ? "Google Places" : "Community"}
+                    </span>
+                  </div>
                 </div>
-                <div className="grid grid-cols-[80px_1fr] gap-2">
-                  <span className="text-dim">source</span>
-                  <span className={station.source === "google" ? "text-neon-green" : "text-neon-cyan"}>
-                    {station.source === "google" ? "google.places" : "custom.local"}
-                  </span>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              {station.address && (
+                <div className="flex items-start gap-3">
+                  <MapPin size={16} className="text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="text-sm text-foreground/90">{station.address}</div>
                 </div>
-                <div className="grid grid-cols-[80px_1fr] gap-2">
-                  <span className="text-dim">coords</span>
-                  <span className="text-dim text-xs">
-                    {station.lat.toFixed(4)}, {station.lng.toFixed(4)}
-                  </span>
-                </div>
+              )}
+              <div className="text-xs text-muted-foreground">
+                {station.lat.toFixed(5)}, {station.lng.toFixed(5)}
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <TerminalButton variant="green" size="lg" onClick={() => setFlow(true)}>
-                  START_CHARGING
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <TerminalButton variant="green" size="lg" onClick={() => setFlow(true)} className="col-span-2">
+                  <Zap size={16} /> Start charging
                 </TerminalButton>
-                <TerminalButton variant="cyan" size="lg" onClick={navigate}>
-                  NAVIGATE
-                </TerminalButton>
-                <TerminalButton variant={isSaved ? "amber" : "ghost"} size="lg" onClick={toggleSave}>
-                  {isSaved ? "UNSAVE" : "SAVE"}
-                </TerminalButton>
+
+                <a
+                  href={navUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
+                >
+                  <Navigation size={16} /> Navigate
+                </a>
+
+                <button
+                  onClick={toggleSave}
+                  className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
+                >
+                  {isSaved ? <BookmarkCheck size={16} className="text-primary" /> : <Bookmark size={16} />}
+                  {isSaved ? "Saved" : "Save"}
+                </button>
               </div>
-            </>
-          )}
-        </TerminalWindow>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

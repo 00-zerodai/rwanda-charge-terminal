@@ -21,11 +21,11 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     if (step === "connect" && mode) {
       setLogs([]);
       const seq = [
-        `INIT ${mode.toUpperCase()}_HANDSHAKE...`,
-        "DISCOVERING CHARGER ID...",
-        `CHARGER FOUND: ${station.id.slice(0, 8).toUpperCase()}`,
-        "VERIFYING SIGNATURE... OK",
-        "CHARGER LINKED ✓",
+        `Initiating ${mode.toUpperCase()} handshake…`,
+        "Discovering charger…",
+        `Charger found: ${station.id.slice(0, 8).toUpperCase()}`,
+        "Verifying signature… OK",
+        "Charger linked ✓",
       ];
       seq.forEach((line, i) =>
         setTimeout(() => {
@@ -40,10 +40,10 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     if (step === "processing") {
       setLogs([]);
       const seq = [
-        `INIT TX :: amount=${amount} RWF :: method=${method}`,
-        "CONTACTING PAYMENT GATEWAY...",
-        "AUTHORIZING...",
-        "PAYMENT SUCCESSFUL [DEMO MODE] ✓",
+        `Authorizing ${amount.toLocaleString()} RWF via ${method}…`,
+        "Contacting payment gateway…",
+        "Authorizing…",
+        "Payment successful (demo mode) ✓",
       ];
       seq.forEach((line, i) =>
         setTimeout(() => {
@@ -55,9 +55,9 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     if (step === "charging") {
       setLogs([]);
       const seq = [
-        "CHARGER ENGAGED",
-        "BATTERY: 32% → 47% → 68% → 85%",
-        "SESSION COMPLETE :: 12.4 kWh delivered",
+        "Charger engaged",
+        "Battery: 32% → 47% → 68% → 85%",
+        "Session complete · 12.4 kWh delivered",
       ];
       seq.forEach((line, i) =>
         setTimeout(() => {
@@ -83,16 +83,14 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     <div className="space-y-3">
       {step === "connect" && !mode && (
         <>
-          <TerminalLine tone="cyan">
-            <Typewriter text={`> link_charger --station="${station.name}"`} cursor={false} speed={10} />
-          </TerminalLine>
-          <p className="text-xs text-dim mt-2">Choose a connection method:</p>
+          <h3 className="text-base font-semibold text-foreground">Connect to charger</h3>
+          <p className="text-sm text-muted-foreground mt-1">Choose how to link with {station.name}.</p>
           <div className="flex flex-wrap gap-2">
             <TerminalButton variant="green" size="lg" onClick={() => setMode("qr")}>
-              SCAN_QR
+              Scan QR
             </TerminalButton>
-            <TerminalButton variant="cyan" size="lg" onClick={() => setMode("nfc")}>
-              TAP_NFC
+            <TerminalButton variant="ghost" size="lg" onClick={() => setMode("nfc")}>
+              Tap NFC
             </TerminalButton>
           </div>
         </>
@@ -110,16 +108,16 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
 
       {step === "method" && (
         <>
-          <TerminalLine tone="cyan">SELECT_PAYMENT_METHOD</TerminalLine>
+          <h3 className="text-base font-semibold text-foreground">Choose payment method</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
             <TerminalButton variant="green" size="lg" onClick={() => { setMethod("CARD"); setStep("card"); }}>
-              CARD
+              Card
             </TerminalButton>
             <TerminalButton variant="amber" size="lg" onClick={() => { setMethod("MTN_MOMO"); setStep("momo"); }}>
-              MTN_MOMO
+              MTN MoMo
             </TerminalButton>
             <TerminalButton variant="danger" size="lg" onClick={() => { setMethod("AIRTEL_MONEY"); setStep("momo"); }}>
-              AIRTEL_MONEY
+              Airtel Money
             </TerminalButton>
           </div>
         </>
@@ -134,16 +132,14 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
 
       {step === "done" && (
         <div className="space-y-3">
-          <TerminalLine tone="green">
-            <span className="glow-green font-bold">SESSION_TERMINATED :: SUCCESS ✓</span>
-          </TerminalLine>
-          <div className="terminal-box p-3 text-sm space-y-1">
-            <div className="flex justify-between"><span className="text-dim">station</span><span>{station.name}</span></div>
-            <div className="flex justify-between"><span className="text-dim">delivered</span><span className="text-neon-cyan">12.4 kWh</span></div>
-            <div className="flex justify-between"><span className="text-dim">paid</span><span className="text-neon-green">{amount.toLocaleString()} RWF</span></div>
-            <div className="flex justify-between"><span className="text-dim">method</span><span>{method}</span></div>
+          <h3 className="text-base font-semibold text-[hsl(var(--success))]">Charging complete</h3>
+          <div className="bg-muted/30 border border-border rounded-xl p-4 text-sm space-y-2">
+            <div className="flex justify-between"><span className="text-muted-foreground">Station</span><span className="font-medium">{station.name}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Delivered</span><span className="text-primary font-medium">12.4 kWh</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="font-medium">{amount.toLocaleString()} RWF</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Method</span><span>{method}</span></div>
           </div>
-          <TerminalButton variant="green" size="lg" onClick={onDone}>EXIT</TerminalButton>
+          <TerminalButton variant="green" size="lg" onClick={onDone} className="w-full">Done</TerminalButton>
         </div>
       )}
     </div>
@@ -152,13 +148,13 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <label className="block">
-    <span className="block text-[10px] uppercase tracking-widest text-dim mb-1">$ {label}</span>
+    <span className="block text-xs font-medium text-muted-foreground mb-1.5">{label}</span>
     {children}
   </label>
 );
 
 const inputCls =
-  "w-full bg-input border border-border px-2 py-1.5 text-sm text-neon-green font-mono outline-none focus:border-neon-green focus:shadow-glow-green rounded-sm";
+  "w-full bg-input border border-border px-3 py-2.5 text-sm text-foreground rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition";
 
 const CardForm = ({ onPay, amount }: { onPay: () => void; amount: number }) => {
   const [num, setNum] = useState("4242 4242 4242 4242");
@@ -169,13 +165,13 @@ const CardForm = ({ onPay, amount }: { onPay: () => void; amount: number }) => {
       onSubmit={(e) => { e.preventDefault(); onPay(); }}
       className="space-y-3"
     >
-      <TerminalLine tone="cyan">payment_form :: card</TerminalLine>
-      <Field label="card_number">
+      <h3 className="text-base font-semibold text-foreground">Card details</h3>
+      <Field label="Card number">
         <input className={inputCls} value={num} onChange={(e) => setNum(e.target.value)} maxLength={19} />
       </Field>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="exp"><input className={inputCls} value={exp} onChange={(e) => setExp(e.target.value)} maxLength={5} /></Field>
-        <Field label="cvc"><input className={inputCls} value={cvc} onChange={(e) => setCvc(e.target.value)} maxLength={4} /></Field>
+        <Field label="Expiry"><input className={inputCls} value={exp} onChange={(e) => setExp(e.target.value)} maxLength={5} /></Field>
+        <Field label="CVC"><input className={inputCls} value={cvc} onChange={(e) => setCvc(e.target.value)} maxLength={4} /></Field>
       </div>
       <PayBar amount={amount} />
     </form>
@@ -186,22 +182,24 @@ const MomoForm = ({ provider, onPay, amount }: { provider: PayMethod; onPay: () 
   const [phone, setPhone] = useState("+2507");
   return (
     <form onSubmit={(e) => { e.preventDefault(); onPay(); }} className="space-y-3">
-      <TerminalLine tone="cyan">payment_form :: {provider.toLowerCase()}</TerminalLine>
-      <Field label="phone_number">
+      <h3 className="text-base font-semibold text-foreground">
+        {provider === "MTN_MOMO" ? "MTN Mobile Money" : "Airtel Money"}
+      </h3>
+      <Field label="Phone number">
         <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={15} />
       </Field>
-      <p className="text-xs text-dim">A USSD prompt will be simulated on the demo handset.</p>
+      <p className="text-xs text-muted-foreground">A USSD prompt will be simulated on the demo handset.</p>
       <PayBar amount={amount} />
     </form>
   );
 };
 
 const PayBar = ({ amount }: { amount: number }) => (
-  <div className="flex items-center justify-between border-t border-border pt-3">
+  <div className="flex items-center justify-between border-t border-border pt-4">
     <div className="text-sm">
-      <span className="text-dim">total :: </span>
-      <span className="text-neon-green font-bold glow-green">{amount.toLocaleString()} RWF</span>
+      <span className="text-muted-foreground">Total · </span>
+      <span className="text-foreground font-semibold">{amount.toLocaleString()} RWF</span>
     </div>
-    <TerminalButton variant="green" size="lg" type="submit">PAY_NOW</TerminalButton>
+    <TerminalButton variant="green" size="lg" type="submit">Pay now</TerminalButton>
   </div>
 );

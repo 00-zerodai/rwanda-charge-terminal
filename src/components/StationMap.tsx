@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
-import { TerminalLine } from "./Terminal";
 
 /* ---------- Uber/Tesla-inspired dark map style ---------- */
 const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
@@ -204,7 +203,7 @@ export const StationMap = ({
         title: s.name,
         optimized: true,
         icon: {
-          url: PIN_SVG("#00ff9f", "#0d1117"),
+          url: PIN_SVG("#3b82f6", "#0d1117"),
           scaledSize: new g.maps.Size(36, 36),
           anchor: new g.maps.Point(18, 18),
         },
@@ -237,7 +236,7 @@ export const StationMap = ({
         map,
         title: s.name,
         icon: {
-          url: PIN_SVG("#00cfff", "#0d1117"),
+          url: PIN_SVG("#22c55e", "#0d1117"),
           scaledSize: new g.maps.Size(36, 36),
           anchor: new g.maps.Point(18, 18),
         },
@@ -253,42 +252,46 @@ export const StationMap = ({
   return (
     <div className="relative h-full w-full overflow-hidden rounded-sm border border-border">
       <div ref={containerRef} className="absolute inset-0 bg-background" />
-      {/* faint scanline overlay for vibe, doesn't block map */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-25"
-        style={{ background: "var(--gradient-scanline)" }}
-      />
 
       {/* HUD: top-left status pill */}
-      <div className="pointer-events-none absolute left-2 top-2 z-10 rounded-sm border border-border bg-background/85 backdrop-blur-md px-2 py-1 text-[10px] sm:text-xs">
-        <TerminalLine tone={status === "error" ? "amber" : status === "scanning" ? "cyan" : "green"}>
-          {status === "scanning" && <span className="animate-blink">scanning</span>}
-          {status === "ready" && <>nodes_live :: <span className="text-neon-cyan">{count}</span></>}
-          {status === "cached" && <>cached :: <span className="text-neon-cyan">{count}</span></>}
-          {status === "loading" && "loading map kernel..."}
-          {status === "init" && "init..."}
-          {status === "error" && "map_load_failed"}
-        </TerminalLine>
+      <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full border border-border bg-card/90 backdrop-blur-md px-3 py-1.5 text-xs flex items-center gap-2 shadow-soft">
+        <span
+          className={
+            "h-1.5 w-1.5 rounded-full " +
+            (status === "error"
+              ? "bg-destructive"
+              : status === "scanning" || status === "loading" || status === "init"
+              ? "bg-[hsl(var(--warning))] animate-pulse"
+              : "bg-[hsl(var(--success))]")
+          }
+        />
+        <span className="text-foreground/90 font-medium">
+          {status === "scanning" && "Searching nearby…"}
+          {status === "ready" && <>{count} stations</>}
+          {status === "cached" && <>{count} stations</>}
+          {status === "loading" && "Loading map…"}
+          {status === "init" && "Starting…"}
+          {status === "error" && "Map failed to load"}
+        </span>
       </div>
 
       {/* Recenter button */}
       <button
         onClick={() => mapRef.current?.panTo(KIGALI_CENTER)}
-        className="absolute left-2 bottom-3 z-10 rounded-sm border border-border bg-background/85 backdrop-blur px-2 py-1.5 text-[11px] text-neon-green hover:border-neon-green hover:shadow-glow-green transition"
+        className="absolute left-3 bottom-3 z-10 rounded-full bg-card/95 backdrop-blur border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-card transition shadow-soft"
       >
-        ◎ kigali
+        ◎ Center on Kigali
       </button>
 
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/95 p-4 z-20">
-          <div className="terminal-box p-4 max-w-sm text-sm">
-            <TerminalLine tone="amber">map_load_failed</TerminalLine>
-            <p className="mt-2 text-xs text-dim">{error}</p>
-            <p className="mt-2 text-xs text-dim">
-              Verify the API key in <code className="text-neon-cyan">src/lib/google-maps.ts</code> and that
-              <span className="text-neon-green"> Maps JavaScript API</span> +{" "}
-              <span className="text-neon-green">Places API</span> are enabled in Google Cloud Console.
+          <div className="bg-card border border-border rounded-2xl p-5 max-w-sm shadow-elevated">
+            <h3 className="text-base font-semibold text-foreground">Map failed to load</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Verify the API key in <code className="text-primary">src/lib/google-maps.ts</code> and that
+              <span className="text-foreground"> Maps JavaScript API</span> and{" "}
+              <span className="text-foreground">Places API</span> are enabled in Google Cloud Console.
             </p>
           </div>
         </div>

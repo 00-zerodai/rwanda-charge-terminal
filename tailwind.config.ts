@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        mono: ['"JetBrains Mono"', '"Fira Code"', '"Courier New"', 'ui-monospace', 'monospace'],
-        sans: ['"JetBrains Mono"', '"Fira Code"', '"Courier New"', 'ui-monospace', 'monospace'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
