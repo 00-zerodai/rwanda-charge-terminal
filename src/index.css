@@ -125,6 +125,17 @@
   to { opacity: 1; }
 }
 
+@keyframes nearest-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.15); opacity: 0.45; }
+}
+
+.nearest-pulse-ring {
+  animation: nearest-pulse 2.4s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
 @layer utilities {
   .font-display { font-family: 'Inter', sans-serif; letter-spacing: -0.02em; }
   .text-neon-green { color: hsl(var(--success)); }
