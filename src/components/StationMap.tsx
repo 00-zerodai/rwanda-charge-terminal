@@ -249,6 +249,12 @@ export const StationMap = ({
 
   const [customStations] = useLocalState<SavedStation[]>("cf_custom_stations", []);
 
+  const wantedKind: StationKind = vehicleType === "moto" ? "swap-moto" : "ev-car";
+  const wantedKindRef = useRef<StationKind>(wantedKind);
+  useEffect(() => {
+    wantedKindRef.current = wantedKind;
+  }, [wantedKind]);
+
   // Pan/zoom to an external coordinate (search bar selection).
   useEffect(() => {
     if (!flyTo || !mapRef.current) return;
