@@ -33,14 +33,15 @@ const Index = () => {
   const [visibleStations, setVisibleStations] = useState<Station[]>([]);
   const isMobile = useIsMobile();
 
+  // Keep filters.vehicleType in sync with header toggle
+  useEffect(() => {
+    if (vehicleType && filters.vehicleType !== vehicleType) {
+      setFilters((f) => ({ ...f, vehicleType: vehicleType as VehicleType }));
+    }
+  }, [vehicleType, filters.vehicleType]);
+
   if (!user) return <MockLogin onLogin={setUser} />;
   if (!vehicleType) return <VehiclePicker onPick={(v) => setVehicleType(v)} />;
-
-  // Keep filters.vehicleType in sync with header toggle
-  // (effect-free conditional sync; safe because both are state)
-  if (filters.vehicleType !== vehicleType) {
-    setFilters((f) => ({ ...f, vehicleType: vehicleType as VehicleType }));
-  }
 
   // Compute nearest station id when nearestFirst is on
   const nearestId = (() => {
