@@ -689,6 +689,12 @@ export const StationMap = ({
     markerByIdRef.current.clear();
     markerOrderRef.current = [];
     seenIdsRef.current.clear();
+    // Drop google station entries; keep custom ones (re-registered by their effect)
+    const keep = new Map<string, Station>();
+    stationsRef.current.forEach((s, id) => {
+      if (s.source === "custom") keep.set(id, s);
+    });
+    stationsRef.current = keep;
     setCount(0);
     lastFetchKeyRef.current = null;
     // Trigger a fresh fetch for the new vehicle kind
