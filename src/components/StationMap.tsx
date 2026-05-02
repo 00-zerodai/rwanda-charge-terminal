@@ -529,6 +529,8 @@ export const StationMap = ({
 
     customStations.forEach((s) => {
       const kind: StationKind = s.kind ?? classifyStation(s.name);
+      // Hide custom stations that don't match the active vehicle filter.
+      if (kind !== wantedKind) return;
       const station: Station = { ...s, source: "custom", status: "online", kind };
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
@@ -547,7 +549,29 @@ export const StationMap = ({
       });
       customMarkersRef.current.push(marker);
     });
-  }, [customStations, status, onSelect]);
+  }, [customStations, status, onSelect, wantedKind]);
+
+  /* When vehicle filter changes, clear existing google markers and refetch */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    // Remove all existing google markers from the map and clusterer
+    const all = googleMarkersRef.current;
+    if (all.length) {
+      if (clustererRef.current) clustererRef.current.removeMarkers(all);
+      all.forEach((m) => m.setMap(null));
+    }
+    googleMarkersRef.current = [];
+    pendingMarkersRef.current = [];
+    markerByIdRef.current.clear();
+    markerOrderRef.current = [];
+    seenIdsRef.current.clear();
+    setCount(0);
+    lastFetchKeyRef.current = null;
+    // Trigger a fresh fetch for the new vehicle kind
+    fetchNearby();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedKind]);
 
   /* Draw / clear route when selected station changes */
   useEffect(() => {
