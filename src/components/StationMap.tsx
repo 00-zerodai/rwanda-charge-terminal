@@ -551,6 +551,7 @@ export const StationMap = ({
     stations.forEach((s) => {
       if (seenIdsRef.current.has(s.id)) return;
       seenIdsRef.current.add(s.id);
+      stationsRef.current.set(s.id, s);
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
         title: s.name,
@@ -561,6 +562,7 @@ export const StationMap = ({
           anchor: new g.maps.Point(22, 52),
         },
       });
+      (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
         const svc = placesRef.current;
@@ -575,7 +577,8 @@ export const StationMap = ({
       googleMarkersRef.current.push(marker);
       markerByIdRef.current.set(s.id, marker);
       markerOrderRef.current.push(s.id);
-      fresh.push(marker);
+      if (stationMatchesFilters(s)) fresh.push(marker);
+      else marker.setMap(null);
     });
     if (fresh.length) {
       if (clustererRef.current) {
@@ -624,6 +627,8 @@ export const StationMap = ({
       }
     }
     setCount(seenIdsRef.current.size);
+    notifyStations();
+    applyNearestHighlight();
     return fresh;
   }
 
@@ -638,12 +643,13 @@ export const StationMap = ({
 
     customStations.forEach((s) => {
       const kind: StationKind = s.kind ?? classifyStation(s.name);
-      // Hide custom stations that don't match the active vehicle filter.
-      if (kind !== wantedKind) return;
       const station: Station = { ...s, source: "custom", status: "online", kind };
+      stationsRef.current.set(s.id, station);
+      // Hide if doesn't match filters
+      const visible = stationMatchesFilters(station);
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
-        map,
+        map: visible ? map : null,
         title: s.name,
         icon: {
           url: PIN_FOR(kind, "custom"),
@@ -652,12 +658,15 @@ export const StationMap = ({
         },
         zIndex: 999,
       });
+      (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
         onSelect(station);
       });
       customMarkersRef.current.push(marker);
     });
+    notifyStations();
+    applyNearestHighlight();
   }, [customStations, status, onSelect, wantedKind]);
 
   /* When vehicle filter changes, clear existing google markers and refetch */
