@@ -595,6 +595,28 @@ export const StationMap = ({
         </span>
       </div>
 
+      {/* Legend chip — pin styles */}
+      {legendOpen && (
+        <div className="absolute left-3 top-12 z-10 rounded-xl border border-border bg-card/95 backdrop-blur-md px-3 py-2 text-[11px] shadow-soft flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full bg-[#2563eb] ring-2 ring-white" />
+            <span className="text-foreground/90 font-medium">EV charger</span>
+          </div>
+          <span className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full bg-[#ea580c] ring-2 ring-white" />
+            <span className="text-foreground/90 font-medium">Battery swap</span>
+          </div>
+          <button
+            onClick={dismissLegend}
+            aria-label="Dismiss legend"
+            className="ml-1 text-muted-foreground hover:text-foreground transition text-base leading-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Map controls */}
       <div className="absolute left-3 bottom-3 z-10 flex gap-2">
         <button
