@@ -229,6 +229,21 @@ export const StationMap = ({
   const [status, setStatus] = useState<string>("init");
   const [count, setCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("cf_legend_dismissed") !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const dismissLegend = () => {
+    try {
+      localStorage.setItem("cf_legend_dismissed", "1");
+    } catch {
+      /* ignore */
+    }
+    setLegendOpen(false);
+  };
 
   const [customStations] = useLocalState<SavedStation[]>("cf_custom_stations", []);
 
