@@ -330,7 +330,7 @@ export const StationMap = ({
   }
 
   /* Pulsing ring overlay for nearest station */
-  const nearestOverlayRef = useRef<google.maps.Marker | null>(null);
+  const nearestOverlayRef = useRef<google.maps.OverlayView | null>(null);
   const nearestIdRef = useRef<string | null>(null);
   useEffect(() => {
     nearestIdRef.current = nearestStationId;
@@ -349,23 +349,65 @@ export const StationMap = ({
     if (!id) return;
     const s = stationsRef.current.get(id);
     if (!s) return;
-    const ring = `data:image/svg+xml;utf8,${encodeURIComponent(
-      `<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'>
-        <circle cx='36' cy='36' r='32' fill='none' stroke='#16a34a' stroke-width='3' opacity='0.9'/>
-        <circle cx='36' cy='36' r='24' fill='none' stroke='#16a34a' stroke-width='2' opacity='0.5'/>
-      </svg>`,
-    )}`;
-    nearestOverlayRef.current = new g.maps.Marker({
-      position: { lat: s.lat, lng: s.lng },
-      map,
-      clickable: false,
-      zIndex: 1,
-      icon: {
-        url: ring,
-        scaledSize: new g.maps.Size(72, 72),
-        anchor: new g.maps.Point(36, 36),
-      },
-    });
+
+    // Custom HTML overlay: soft pulsing ring + "Nearest" label above the pin.
+    class NearestOverlay extends g.maps.OverlayView {
+      private div: HTMLDivElement | null = null;
+      private pos: google.maps.LatLng;
+      constructor(pos: google.maps.LatLngLiteral) {
+        super();
+        this.pos = new g.maps.LatLng(pos.lat, pos.lng);
+      }
+      onAdd() {
+        const div = document.createElement("div");
+        div.style.position = "absolute";
+        div.style.transform = "translate(-50%, -100%)";
+        div.style.pointerEvents = "none";
+        div.style.zIndex = "1";
+        div.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="
+              background:#16a34a;color:#fff;font-size:10px;font-weight:600;
+              letter-spacing:0.3px;padding:2px 8px;border-radius:999px;
+              box-shadow:0 2px 6px rgba(0,0,0,0.25);
+              font-family:Inter,sans-serif;text-transform:uppercase;
+            ">Nearest</div>
+            <div style="
+              width:8px;height:8px;background:#16a34a;
+              transform:rotate(45deg);margin-top:-6px;
+            "></div>
+            <div style="position:relative;width:0;height:0;">
+              <div class="nearest-pulse-ring" style="
+                position:absolute;left:-32px;top:24px;
+                width:64px;height:64px;border-radius:50%;
+                border:2px solid #16a34a;
+                box-shadow:0 0 18px rgba(22,163,74,0.55);
+                background:radial-gradient(circle, rgba(22,163,74,0.18) 0%, rgba(22,163,74,0) 70%);
+              "></div>
+            </div>
+          </div>
+        `;
+        this.div = div;
+        const panes = this.getPanes();
+        panes?.floatPane.appendChild(div);
+      }
+      draw() {
+        const proj = this.getProjection();
+        if (!proj || !this.div) return;
+        const p = proj.fromLatLngToDivPixel(this.pos);
+        if (!p) return;
+        // Anchor above the pin (pin height ~54px)
+        this.div.style.left = `${p.x}px`;
+        this.div.style.top = `${p.y - 60}px`;
+      }
+      onRemove() {
+        if (this.div?.parentNode) this.div.parentNode.removeChild(this.div);
+        this.div = null;
+      }
+    }
+    const overlay = new NearestOverlay({ lat: s.lat, lng: s.lng });
+    overlay.setMap(map);
+    nearestOverlayRef.current = overlay;
   }
 
   // Pan/zoom to an external coordinate (search bar selection).
