@@ -47,7 +47,7 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-1.5">
             {/* Vehicle filter toggle */}
-            <div className="hidden xs:inline-flex items-center rounded-lg border border-border bg-secondary p-0.5 mr-1">
+            <div className="inline-flex items-center rounded-lg border border-border bg-secondary p-0.5 mr-1">
               <button
                 onClick={() => setVehicleType("moto")}
                 aria-label="Show motorcycle stations"
