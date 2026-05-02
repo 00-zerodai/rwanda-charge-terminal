@@ -1,17 +1,18 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { storage, MockUser, useLocalState } from "@/lib/storage";
 import { MockLogin } from "@/components/MockLogin";
 import { StationMap } from "@/components/StationMap";
 import { StationSheet } from "@/components/StationSheet";
-import { Station } from "@/lib/stations";
+import { Station, distanceMeters } from "@/lib/stations";
 import { AddStationDialog } from "@/components/AddStationDialog";
 import { SidePanel } from "@/components/SidePanel";
-import { Plus, User, Zap, RefreshCw, Info, X, Bike, Car } from "lucide-react";
+import { Plus, User, Zap, RefreshCw, Info, X, Bike, Car, Filter } from "lucide-react";
 import { GOOGLE_MAPS_API_KEY } from "@/lib/google-maps";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { SearchBar } from "@/components/SearchBar";
 import { VehiclePicker, VehicleType } from "@/components/VehiclePicker";
+import { FilterDrawer, StationFilters, DEFAULT_FILTERS } from "@/components/FilterDrawer";
 
 const Index = () => {
   const [user, setUser] = useState<MockUser | null>(() => storage.getUser());
@@ -24,10 +25,38 @@ const Index = () => {
   const [legendOpen, setLegendOpen] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom: number; key: number } | null>(null);
   const [vehicleType, setVehicleType] = useLocalState<VehicleType | null>("cf_vehicle_type", null);
+  const [filters, setFilters] = useState<StationFilters>(() =>
+    DEFAULT_FILTERS((vehicleType ?? "car") as VehicleType),
+  );
+  const [showFilters, setShowFilters] = useState(false);
+  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [visibleStations, setVisibleStations] = useState<Station[]>([]);
   const isMobile = useIsMobile();
+
+  // Keep filters.vehicleType in sync with header toggle
+  useEffect(() => {
+    if (vehicleType && filters.vehicleType !== vehicleType) {
+      setFilters((f) => ({ ...f, vehicleType: vehicleType as VehicleType }));
+    }
+  }, [vehicleType, filters.vehicleType]);
 
   if (!user) return <MockLogin onLogin={setUser} />;
   if (!vehicleType) return <VehiclePicker onPick={(v) => setVehicleType(v)} />;
+
+  // Compute nearest station id when nearestFirst is on
+  const nearestId = (() => {
+    if (!filters.nearestFirst || !userLoc || visibleStations.length === 0) return null;
+    let bestId: string | null = null;
+    let bestD = Infinity;
+    for (const s of visibleStations) {
+      const d = distanceMeters(userLoc, { lat: s.lat, lng: s.lng });
+      if (d < bestD) {
+        bestD = d;
+        bestId = s.id;
+      }
+    }
+    return bestId;
+  })();
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-background overflow-hidden">
@@ -83,6 +112,21 @@ const Index = () => {
               <RefreshCw size={16} />
             </button>
             <button
+              onClick={() => setShowFilters(true)}
+              aria-label="Open filters"
+              className={
+                "relative h-11 w-11 sm:h-9 sm:w-9 inline-flex items-center justify-center rounded-lg transition " +
+                (filters.nearestFirst || filters.connectors.length || filters.speeds.length
+                  ? "text-primary bg-primary/10 hover:bg-primary/15"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted")
+              }
+            >
+              <Filter size={16} />
+              {(filters.nearestFirst || filters.connectors.length > 0 || filters.speeds.length > 0) && (
+                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />
+              )}
+            </button>
+            <button
               onClick={() => setShowAdd(true)}
               className="h-11 sm:h-9 inline-flex items-center gap-1.5 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 text-sm font-medium border border-border transition"
             >
@@ -109,6 +153,11 @@ const Index = () => {
             refreshKey={refresh}
             flyTo={flyTo}
             vehicleType={vehicleType}
+            connectorFilter={filters.connectors}
+            speedFilter={filters.speeds}
+            nearestStationId={nearestId}
+            onUserLocation={setUserLoc}
+            onStationsChange={setVisibleStations}
           />
 
           <SearchBar
@@ -189,6 +238,16 @@ const Index = () => {
       {/* Overlays */}
       {showAdd && <AddStationDialog onClose={() => setShowAdd(false)} />}
       <SidePanel open={showPanel} onClose={() => setShowPanel(false)} onSelect={setSelected} />
+      <FilterDrawer
+        open={showFilters}
+        onOpenChange={setShowFilters}
+        filters={filters}
+        onChange={(f) => {
+          setFilters(f);
+          if (f.vehicleType !== vehicleType) setVehicleType(f.vehicleType);
+        }}
+        hasUserLocation={!!userLoc}
+      />
     </div>
   );
 };

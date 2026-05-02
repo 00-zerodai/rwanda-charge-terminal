@@ -2,6 +2,20 @@
 import { SavedStation } from "./storage";
 
 export type StationKind = "swap-moto" | "ev-car";
+export type ConnectorType = "Type 2" | "CCS" | "CHAdeMO" | "Tesla";
+export type SpeedTier = "slow" | "fast" | "ultra";
+
+export const SPEED_LABEL: Record<SpeedTier, string> = {
+  slow: "Slow",
+  fast: "Fast",
+  ultra: "Ultra-fast",
+};
+
+export const SPEED_KW: Record<SpeedTier, string> = {
+  slow: "≤ 22 kW",
+  fast: "50–150 kW",
+  ultra: "150+ kW",
+};
 
 /**
  * Classify a station by its name.
@@ -20,6 +34,57 @@ export function classifyStation(name: string, types?: string[]): StationKind {
   return "ev-car";
 }
 
+/**
+ * Mock realistic connector + speed defaults based on station name patterns.
+ * Returns undefined for swap stations (no connectors).
+ */
+export function inferChargingSpec(
+  name: string,
+  kind: StationKind,
+): { connectors: ConnectorType[]; speed: SpeedTier; kw: number } | undefined {
+  if (kind !== "ev-car") return undefined;
+  const n = (name || "").toLowerCase();
+  if (/supercharger|tesla/.test(n)) {
+    return { connectors: ["Tesla", "CCS"], speed: "ultra", kw: 250 };
+  }
+  if (/kabisa|ultra|hyper/.test(n)) {
+    return { connectors: ["CCS", "CHAdeMO", "Type 2"], speed: "ultra", kw: 180 };
+  }
+  if (/fast|dc|rapid/.test(n)) {
+    return { connectors: ["CCS", "Type 2"], speed: "fast", kw: 75 };
+  }
+  if (/mall|hub|heights|chic|hotel|lodge/.test(n)) {
+    return { connectors: ["Type 2", "CCS"], speed: "fast", kw: 50 };
+  }
+  // Deterministic-ish fallback by name length so it doesn't churn
+  const h = (name || "").length % 3;
+  if (h === 0) return { connectors: ["Type 2"], speed: "slow", kw: 22 };
+  if (h === 1) return { connectors: ["Type 2", "CCS"], speed: "fast", kw: 50 };
+  return { connectors: ["CCS", "CHAdeMO"], speed: "fast", kw: 60 };
+}
+
+/** Haversine distance in meters */
+export function distanceMeters(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+export function formatDistance(m: number): string {
+  if (m < 1000) return `${Math.round(m)} m`;
+  return `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
+}
+
 export type Station = SavedStation & {
   source: "google" | "custom";
   status: "online" | "busy" | "offline" | "unknown";
@@ -27,6 +92,9 @@ export type Station = SavedStation & {
   types?: string[];
   nearLandmark?: string;
   kind: StationKind;
+  connectors?: ConnectorType[];
+  speed?: SpeedTier;
+  kw?: number;
 };
 
 const KIGALI_DEMO: Station[] = [
@@ -88,7 +156,10 @@ const KIGALI_DEMO: Station[] = [
 ];
 
 export function getDemoStations(): Station[] {
-  return KIGALI_DEMO;
+  return KIGALI_DEMO.map((s) => {
+    const spec = inferChargingSpec(s.name, s.kind);
+    return spec ? { ...s, ...spec } : s;
+  });
 }
 
 export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station | null {
@@ -102,9 +173,12 @@ export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station
   } catch {
     open = undefined;
   }
+  const name = p.name ?? "Unknown station";
+  const kind = classifyStation(name, p.types);
+  const spec = inferChargingSpec(name, kind);
   return {
     id: p.place_id,
-    name: p.name ?? "Unknown station",
+    name,
     address: p.vicinity ?? p.formatted_address ?? "",
     lat: p.geometry.location.lat(),
     lng: p.geometry.location.lng(),
@@ -113,6 +187,9 @@ export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station
     status: open === false ? "offline" : open === true ? "online" : "unknown",
     openNow: open ?? undefined,
     types: p.types,
-    kind: classifyStation(p.name ?? "", p.types),
+    kind,
+    connectors: spec?.connectors,
+    speed: spec?.speed,
+    kw: spec?.kw,
   };
 }

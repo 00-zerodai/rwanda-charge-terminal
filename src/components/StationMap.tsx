@@ -1,7 +1,7 @@
 /// <reference types="google.maps" />
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
-import { Station, googlePlaceToStation, classifyStation, StationKind } from "@/lib/stations";
+import { Station, googlePlaceToStation, classifyStation, StationKind, ConnectorType, SpeedTier } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
 import type { MarkerClusterer as MarkerClustererType, Renderer } from "@googlemaps/markerclusterer";
 import { fetchRoute } from "@/lib/directions";
@@ -202,6 +202,11 @@ export const StationMap = ({
   refreshKey = 0,
   flyTo,
   vehicleType,
+  connectorFilter = [],
+  speedFilter = [],
+  nearestStationId = null,
+  onUserLocation,
+  onStationsChange,
 }: {
   apiKey: string;
   onSelect: (s: Station) => void;
@@ -210,6 +215,11 @@ export const StationMap = ({
   refreshKey?: number;
   flyTo?: { lat: number; lng: number; zoom?: number; key?: number } | null;
   vehicleType: "moto" | "car";
+  connectorFilter?: ConnectorType[];
+  speedFilter?: SpeedTier[];
+  nearestStationId?: string | null;
+  onUserLocation?: (loc: { lat: number; lng: number } | null) => void;
+  onStationsChange?: (stations: Station[]) => void;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -249,11 +259,114 @@ export const StationMap = ({
 
   const [customStations] = useLocalState<SavedStation[]>("cf_custom_stations", []);
 
+  // Track all known stations for parent (nearest calc, sidepanel sort)
+  const stationsRef = useRef<Map<string, Station>>(new Map());
+  const stationsListenerRef = useRef<((stations: Station[]) => void) | null>(null);
+  useEffect(() => {
+    stationsListenerRef.current = onStationsChange ?? null;
+  }, [onStationsChange]);
+
   const wantedKind: StationKind = vehicleType === "moto" ? "swap-moto" : "ev-car";
   const wantedKindRef = useRef<StationKind>(wantedKind);
   useEffect(() => {
     wantedKindRef.current = wantedKind;
   }, [wantedKind]);
+
+  const connectorFilterRef = useRef<ConnectorType[]>(connectorFilter);
+  const speedFilterRef = useRef<SpeedTier[]>(speedFilter);
+  useEffect(() => {
+    connectorFilterRef.current = connectorFilter;
+    speedFilterRef.current = speedFilter;
+    applyFiltersToMarkers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectorFilter, speedFilter]);
+
+  function stationMatchesFilters(s: Station): boolean {
+    if (s.kind !== wantedKindRef.current) return false;
+    if (s.kind === "ev-car") {
+      const cf = connectorFilterRef.current;
+      const sf = speedFilterRef.current;
+      if (cf.length && !s.connectors?.some((c) => cf.includes(c))) return false;
+      if (sf.length && (!s.speed || !sf.includes(s.speed))) return false;
+    }
+    return true;
+  }
+
+  function applyFiltersToMarkers() {
+    const map = mapRef.current;
+    if (!map) return;
+    const visibleGoogle: google.maps.Marker[] = [];
+    const hiddenGoogle: google.maps.Marker[] = [];
+    googleMarkersRef.current.forEach((m) => {
+      const id = (m as any).__stationId as string | undefined;
+      const s = id ? stationsRef.current.get(id) : null;
+      if (s && stationMatchesFilters(s)) visibleGoogle.push(m);
+      else hiddenGoogle.push(m);
+    });
+    if (clustererRef.current) {
+      // Rebuild cluster set
+      clustererRef.current.clearMarkers();
+      clustererRef.current.addMarkers(visibleGoogle);
+      hiddenGoogle.forEach((m) => m.setMap(null));
+    } else {
+      visibleGoogle.forEach((m) => m.setMap(map));
+      hiddenGoogle.forEach((m) => m.setMap(null));
+    }
+    customMarkersRef.current.forEach((m) => {
+      const id = (m as any).__stationId as string | undefined;
+      const s = id ? stationsRef.current.get(id) : null;
+      m.setMap(s && stationMatchesFilters(s) ? map : null);
+    });
+    applyNearestHighlight();
+    notifyStations();
+  }
+
+  function notifyStations() {
+    const list: Station[] = [];
+    stationsRef.current.forEach((s) => {
+      if (stationMatchesFilters(s)) list.push(s);
+    });
+    stationsListenerRef.current?.(list);
+  }
+
+  /* Pulsing ring overlay for nearest station */
+  const nearestOverlayRef = useRef<google.maps.Marker | null>(null);
+  const nearestIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    nearestIdRef.current = nearestStationId;
+    applyNearestHighlight();
+  }, [nearestStationId]);
+
+  function applyNearestHighlight() {
+    const g = (window as any).google as typeof google | undefined;
+    const map = mapRef.current;
+    if (!g || !map) return;
+    if (nearestOverlayRef.current) {
+      nearestOverlayRef.current.setMap(null);
+      nearestOverlayRef.current = null;
+    }
+    const id = nearestIdRef.current;
+    if (!id) return;
+    const s = stationsRef.current.get(id);
+    if (!s) return;
+    const ring = `data:image/svg+xml;utf8,${encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'>
+        <circle cx='36' cy='36' r='32' fill='none' stroke='#16a34a' stroke-width='3' opacity='0.9'/>
+        <circle cx='36' cy='36' r='24' fill='none' stroke='#16a34a' stroke-width='2' opacity='0.5'/>
+      </svg>`,
+    )}`;
+    nearestOverlayRef.current = new g.maps.Marker({
+      position: { lat: s.lat, lng: s.lng },
+      map,
+      clickable: false,
+      zIndex: 1,
+      icon: {
+        url: ring,
+        scaledSize: new g.maps.Size(72, 72),
+        anchor: new g.maps.Point(36, 36),
+      },
+    });
+  }
 
   // Pan/zoom to an external coordinate (search bar selection).
   useEffect(() => {
@@ -306,6 +419,7 @@ export const StationMap = ({
             (pos) => {
               const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
               userLocationRef.current = loc;
+              onUserLocation?.(loc);
               const dot = `data:image/svg+xml;utf8,${encodeURIComponent(
                 `<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='#3b82f6' opacity='0.25'/><circle cx='11' cy='11' r='6' fill='#3b82f6' stroke='#fff' stroke-width='2'/></svg>`,
               )}`;
@@ -442,6 +556,7 @@ export const StationMap = ({
     stations.forEach((s) => {
       if (seenIdsRef.current.has(s.id)) return;
       seenIdsRef.current.add(s.id);
+      stationsRef.current.set(s.id, s);
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
         title: s.name,
@@ -452,6 +567,7 @@ export const StationMap = ({
           anchor: new g.maps.Point(22, 52),
         },
       });
+      (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
         const svc = placesRef.current;
@@ -466,7 +582,8 @@ export const StationMap = ({
       googleMarkersRef.current.push(marker);
       markerByIdRef.current.set(s.id, marker);
       markerOrderRef.current.push(s.id);
-      fresh.push(marker);
+      if (stationMatchesFilters(s)) fresh.push(marker);
+      else marker.setMap(null);
     });
     if (fresh.length) {
       if (clustererRef.current) {
@@ -515,6 +632,8 @@ export const StationMap = ({
       }
     }
     setCount(seenIdsRef.current.size);
+    notifyStations();
+    applyNearestHighlight();
     return fresh;
   }
 
@@ -529,12 +648,13 @@ export const StationMap = ({
 
     customStations.forEach((s) => {
       const kind: StationKind = s.kind ?? classifyStation(s.name);
-      // Hide custom stations that don't match the active vehicle filter.
-      if (kind !== wantedKind) return;
       const station: Station = { ...s, source: "custom", status: "online", kind };
+      stationsRef.current.set(s.id, station);
+      // Hide if doesn't match filters
+      const visible = stationMatchesFilters(station);
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
-        map,
+        map: visible ? map : null,
         title: s.name,
         icon: {
           url: PIN_FOR(kind, "custom"),
@@ -543,12 +663,15 @@ export const StationMap = ({
         },
         zIndex: 999,
       });
+      (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
         onSelect(station);
       });
       customMarkersRef.current.push(marker);
     });
+    notifyStations();
+    applyNearestHighlight();
   }, [customStations, status, onSelect, wantedKind]);
 
   /* When vehicle filter changes, clear existing google markers and refetch */
@@ -566,6 +689,12 @@ export const StationMap = ({
     markerByIdRef.current.clear();
     markerOrderRef.current = [];
     seenIdsRef.current.clear();
+    // Drop google station entries; keep custom ones (re-registered by their effect)
+    const keep = new Map<string, Station>();
+    stationsRef.current.forEach((s, id) => {
+      if (s.source === "custom") keep.set(id, s);
+    });
+    stationsRef.current = keep;
     setCount(0);
     lastFetchKeyRef.current = null;
     // Trigger a fresh fetch for the new vehicle kind
