@@ -206,6 +206,7 @@ export const StationMap = ({
   speedFilter = [],
   nearestStationId = null,
   onUserLocation,
+  onStationsChange,
 }: {
   apiKey: string;
   onSelect: (s: Station) => void;
@@ -218,6 +219,7 @@ export const StationMap = ({
   speedFilter?: SpeedTier[];
   nearestStationId?: string | null;
   onUserLocation?: (loc: { lat: number; lng: number } | null) => void;
+  onStationsChange?: (stations: Station[]) => void;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -260,6 +262,9 @@ export const StationMap = ({
   // Track all known stations for parent (nearest calc, sidepanel sort)
   const stationsRef = useRef<Map<string, Station>>(new Map());
   const stationsListenerRef = useRef<((stations: Station[]) => void) | null>(null);
+  useEffect(() => {
+    stationsListenerRef.current = onStationsChange ?? null;
+  }, [onStationsChange]);
 
   const wantedKind: StationKind = vehicleType === "moto" ? "swap-moto" : "ev-car";
   const wantedKindRef = useRef<StationKind>(wantedKind);
