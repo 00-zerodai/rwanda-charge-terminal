@@ -6,7 +6,8 @@ import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
 import { toast } from "sonner";
 import { buildMapsUrl, isIOS, isAndroid, openMapsOnIOS } from "@/lib/platform";
-import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route, Car, Bike } from "lucide-react";
+import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route, Car, Bike, Plug, Gauge, BatteryCharging } from "lucide-react";
+import { SPEED_LABEL, SPEED_KW } from "@/lib/stations";
 
 export const StationSheet = ({
   station,
@@ -218,6 +219,64 @@ export const StationSheet = ({
                   <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Driving</span>
                 </div>
               )}
+
+              {/* Technical specs */}
+              <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2.5">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {isSwap ? "Service" : "Charging specs"}
+                </h3>
+
+                {isSwap ? (
+                  <div className="flex items-start gap-2.5">
+                    <BatteryCharging size={16} className="text-[hsl(24_95%_53%)] mt-0.5 shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Battery Swap Station</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        Swap a depleted battery for a fully charged one. No connector required.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-start gap-2.5">
+                      <Plug size={14} className="text-primary mt-0.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] text-muted-foreground">Connectors</div>
+                        {station.connectors && station.connectors.length > 0 ? (
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {station.connectors.map((c) => (
+                              <span
+                                key={c}
+                                className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-[11px] font-medium text-foreground"
+                              >
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground mt-0.5">Not available</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <Gauge size={14} className="text-primary mt-0.5 shrink-0" />
+                      <div>
+                        <div className="text-[11px] text-muted-foreground">Charging speed</div>
+                        {station.speed ? (
+                          <div className="text-sm font-medium text-foreground mt-0.5">
+                            {SPEED_LABEL[station.speed]}
+                            <span className="ml-2 text-xs text-muted-foreground font-normal">
+                              {station.kw ? `${station.kw} kW` : SPEED_KW[station.speed]}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground mt-0.5">Not available</div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
 
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <TerminalButton variant="green" size="lg" onClick={() => setFlow(true)} className="col-span-2">
