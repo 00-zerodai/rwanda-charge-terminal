@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { storage, MockUser } from "@/lib/storage";
+import { storage, MockUser, useLocalState } from "@/lib/storage";
 import { MockLogin } from "@/components/MockLogin";
 import { StationMap } from "@/components/StationMap";
 import { StationSheet } from "@/components/StationSheet";
 import { Station } from "@/lib/stations";
 import { AddStationDialog } from "@/components/AddStationDialog";
 import { SidePanel } from "@/components/SidePanel";
-import { Plus, User, Zap, RefreshCw, Info, X } from "lucide-react";
+import { Plus, User, Zap, RefreshCw, Info, X, Bike, Car } from "lucide-react";
 import { GOOGLE_MAPS_API_KEY } from "@/lib/google-maps";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { SearchBar } from "@/components/SearchBar";
+import { VehiclePicker, VehicleType } from "@/components/VehiclePicker";
 
 const Index = () => {
   const [user, setUser] = useState<MockUser | null>(() => storage.getUser());
@@ -22,9 +23,11 @@ const Index = () => {
   const [routeInfo, setRouteInfo] = useState<{ distanceText: string; durationText: string } | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom: number; key: number } | null>(null);
+  const [vehicleType, setVehicleType] = useLocalState<VehicleType | null>("cf_vehicle_type", null);
   const isMobile = useIsMobile();
 
   if (!user) return <MockLogin onLogin={setUser} />;
+  if (!vehicleType) return <VehiclePicker onPick={(v) => setVehicleType(v)} />;
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-background overflow-hidden">
@@ -43,6 +46,35 @@ const Index = () => {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            {/* Vehicle filter toggle */}
+            <div className="inline-flex items-center rounded-lg border border-border bg-secondary p-0.5 mr-1">
+              <button
+                onClick={() => setVehicleType("moto")}
+                aria-label="Show motorcycle stations"
+                className={
+                  "h-9 px-2.5 inline-flex items-center gap-1 rounded-md text-xs font-medium transition " +
+                  (vehicleType === "moto"
+                    ? "bg-[hsl(24_95%_53%/0.15)] text-[hsl(24_95%_53%)]"
+                    : "text-muted-foreground hover:text-foreground")
+                }
+              >
+                <Bike size={14} />
+                <span className="hidden sm:inline">Moto</span>
+              </button>
+              <button
+                onClick={() => setVehicleType("car")}
+                aria-label="Show car stations"
+                className={
+                  "h-9 px-2.5 inline-flex items-center gap-1 rounded-md text-xs font-medium transition " +
+                  (vehicleType === "car"
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground")
+                }
+              >
+                <Car size={14} />
+                <span className="hidden sm:inline">Car</span>
+              </button>
+            </div>
             <button
               onClick={() => setRefresh((r) => r + 1)}
               aria-label="Refresh"
@@ -76,6 +108,7 @@ const Index = () => {
             onRouteInfo={setRouteInfo}
             refreshKey={refresh}
             flyTo={flyTo}
+            vehicleType={vehicleType}
           />
 
           <SearchBar

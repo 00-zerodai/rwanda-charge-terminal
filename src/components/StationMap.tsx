@@ -201,6 +201,7 @@ export const StationMap = ({
   onRouteInfo,
   refreshKey = 0,
   flyTo,
+  vehicleType,
 }: {
   apiKey: string;
   onSelect: (s: Station) => void;
@@ -208,6 +209,7 @@ export const StationMap = ({
   onRouteInfo?: (info: { distanceText: string; durationText: string } | null) => void;
   refreshKey?: number;
   flyTo?: { lat: number; lng: number; zoom?: number; key?: number } | null;
+  vehicleType: "moto" | "car";
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -246,6 +248,12 @@ export const StationMap = ({
   };
 
   const [customStations] = useLocalState<SavedStation[]>("cf_custom_stations", []);
+
+  const wantedKind: StationKind = vehicleType === "moto" ? "swap-moto" : "ev-car";
+  const wantedKindRef = useRef<StationKind>(wantedKind);
+  useEffect(() => {
+    wantedKindRef.current = wantedKind;
+  }, [wantedKind]);
 
   // Pan/zoom to an external coordinate (search bar selection).
   useEffect(() => {
@@ -366,7 +374,7 @@ export const StationMap = ({
     if (!center) return;
     const lat = center.lat();
     const lng = center.lng();
-    const key = cellKey(lat, lng);
+    const key = `${wantedKindRef.current}:${cellKey(lat, lng)}`;
     if (key === lastFetchKeyRef.current) return; // already fetched at this cell
     lastFetchKeyRef.current = key;
 
@@ -410,7 +418,8 @@ export const StationMap = ({
       }
       const stations = results
         .map(googlePlaceToStation)
-        .filter((s): s is Station => !!s);
+        .filter((s): s is Station => !!s)
+        .filter((s) => s.kind === wantedKindRef.current);
       writeCache(key, stations);
       mergeStations(g, map, stations);
       setStatus(stations.length ? "ready" : "empty");
@@ -420,8 +429,9 @@ export const StationMap = ({
       {
         location: { lat, lng },
         radius,
-        type: "electric_vehicle_charging_station" as any,
-        keyword: "EV charging",
+        ...(wantedKindRef.current === "swap-moto"
+          ? { keyword: "Spiro Ampersand battery swap motorcycle" }
+          : { type: "electric_vehicle_charging_station" as any, keyword: "EV charging Kabisa" }),
       },
       handle,
     );
@@ -519,6 +529,8 @@ export const StationMap = ({
 
     customStations.forEach((s) => {
       const kind: StationKind = s.kind ?? classifyStation(s.name);
+      // Hide custom stations that don't match the active vehicle filter.
+      if (kind !== wantedKind) return;
       const station: Station = { ...s, source: "custom", status: "online", kind };
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
@@ -537,7 +549,29 @@ export const StationMap = ({
       });
       customMarkersRef.current.push(marker);
     });
-  }, [customStations, status, onSelect]);
+  }, [customStations, status, onSelect, wantedKind]);
+
+  /* When vehicle filter changes, clear existing google markers and refetch */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    // Remove all existing google markers from the map and clusterer
+    const all = googleMarkersRef.current;
+    if (all.length) {
+      if (clustererRef.current) clustererRef.current.removeMarkers(all);
+      all.forEach((m) => m.setMap(null));
+    }
+    googleMarkersRef.current = [];
+    pendingMarkersRef.current = [];
+    markerByIdRef.current.clear();
+    markerOrderRef.current = [];
+    seenIdsRef.current.clear();
+    setCount(0);
+    lastFetchKeyRef.current = null;
+    // Trigger a fresh fetch for the new vehicle kind
+    fetchNearby();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedKind]);
 
   /* Draw / clear route when selected station changes */
   useEffect(() => {
@@ -598,15 +632,17 @@ export const StationMap = ({
       {/* Legend chip — pin styles */}
       {legendOpen && (
         <div className="absolute left-3 top-12 z-10 rounded-xl border border-border bg-card/95 backdrop-blur-md px-3 py-2 text-[11px] shadow-soft flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-full bg-[#2563eb] ring-2 ring-white" />
-            <span className="text-foreground/90 font-medium">EV charger</span>
-          </div>
-          <span className="h-3 w-px bg-border" />
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-full bg-[#ea580c] ring-2 ring-white" />
-            <span className="text-foreground/90 font-medium">Battery swap</span>
-          </div>
+          {wantedKind === "ev-car" ? (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full bg-[#2563eb] ring-2 ring-white" />
+              <span className="text-foreground/90 font-medium">Showing EV chargers (cars)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full bg-[#ea580c] ring-2 ring-white" />
+              <span className="text-foreground/90 font-medium">Showing battery swap (motorcycles)</span>
+            </div>
+          )}
           <button
             onClick={dismissLegend}
             aria-label="Dismiss legend"
