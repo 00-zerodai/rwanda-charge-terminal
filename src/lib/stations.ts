@@ -156,7 +156,10 @@ const KIGALI_DEMO: Station[] = [
 ];
 
 export function getDemoStations(): Station[] {
-  return KIGALI_DEMO;
+  return KIGALI_DEMO.map((s) => {
+    const spec = inferChargingSpec(s.name, s.kind);
+    return spec ? { ...s, ...spec } : s;
+  });
 }
 
 export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station | null {
