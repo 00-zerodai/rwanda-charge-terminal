@@ -1,27 +1,59 @@
 /// <reference types="google.maps" />
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
-import { Station, googlePlaceToStation } from "@/lib/stations";
+import { Station, googlePlaceToStation, classifyStation, StationKind } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
 import type { MarkerClusterer as MarkerClustererType, Renderer } from "@googlemaps/markerclusterer";
 import { fetchRoute } from "@/lib/directions";
 
-/* ---------- Distinct blue charging-station pin with ⚡ glyph ---------- */
-const STATION_PIN_SVG = (fill: string) =>
+/* ---------- Pin SVGs: car+bolt (EV charger) and moto+bolt (battery swap) ---------- */
+const CAR_PIN_SVG = (fill: string) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' width='44' height='54' viewBox='0 0 44 54'>
       <defs>
-        <filter id='s' x='-20%' y='-20%' width='140%' height='140%'>
+        <filter id='sc' x='-20%' y='-20%' width='140%' height='140%'>
           <feDropShadow dx='0' dy='2' stdDeviation='2' flood-color='#000' flood-opacity='0.35'/>
         </filter>
       </defs>
-      <path filter='url(#s)' d='M22 2C11.5 2 3 10.4 3 20.7c0 13.7 17.3 29.5 18 30.2.6.5 1.4.5 2 0 .7-.7 18-16.5 18-30.2C41 10.4 32.5 2 22 2z'
+      <path filter='url(#sc)' d='M22 2C11.5 2 3 10.4 3 20.7c0 13.7 17.3 29.5 18 30.2.6.5 1.4.5 2 0 .7-.7 18-16.5 18-30.2C41 10.4 32.5 2 22 2z'
             fill='${fill}' stroke='#ffffff' stroke-width='2'/>
       <circle cx='22' cy='20' r='11' fill='#ffffff'/>
-      <path d='M23.5 12 L17.5 22 H21 L20 28 L26.5 18 H23 L24 12 Z'
-            fill='${fill}' stroke='${fill}' stroke-width='0.4' stroke-linejoin='round'/>
+      <!-- car silhouette -->
+      <path d='M14.5 21.5 L15.5 18 Q15.8 17 16.8 17 H27.2 Q28.2 17 28.5 18 L29.5 21.5 H14.5 Z M14 22 H30 V24 Q30 24.6 29.4 24.6 H28.6 V25.3 Q28.6 25.8 28.1 25.8 H27.1 Q26.6 25.8 26.6 25.3 V24.6 H17.4 V25.3 Q17.4 25.8 16.9 25.8 H15.9 Q15.4 25.8 15.4 25.3 V24.6 H14.6 Q14 24.6 14 24 Z'
+            fill='${fill}'/>
+      <!-- lightning bolt overlay -->
+      <path d='M24.6 13 L20.6 19.2 H22.8 L22 23 L26 16.6 H23.8 L24.6 13 Z'
+            fill='#fbbf24' stroke='${fill}' stroke-width='0.4' stroke-linejoin='round'/>
     </svg>`,
   )}`;
+
+const MOTO_PIN_SVG = (fill: string) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='44' height='54' viewBox='0 0 44 54'>
+      <defs>
+        <filter id='sm' x='-20%' y='-20%' width='140%' height='140%'>
+          <feDropShadow dx='0' dy='2' stdDeviation='2' flood-color='#000' flood-opacity='0.35'/>
+        </filter>
+      </defs>
+      <path filter='url(#sm)' d='M22 2C11.5 2 3 10.4 3 20.7c0 13.7 17.3 29.5 18 30.2.6.5 1.4.5 2 0 .7-.7 18-16.5 18-30.2C41 10.4 32.5 2 22 2z'
+            fill='${fill}' stroke='#ffffff' stroke-width='2'/>
+      <circle cx='22' cy='20' r='11' fill='#ffffff'/>
+      <!-- motorcycle silhouette: two wheels + frame + handlebar -->
+      <circle cx='16.2' cy='24' r='2.4' fill='none' stroke='${fill}' stroke-width='1.4'/>
+      <circle cx='27.8' cy='24' r='2.4' fill='none' stroke='${fill}' stroke-width='1.4'/>
+      <path d='M16.4 24 L20 19 H25 L27.6 24 M20 19 L18.5 17 H17 M25 19 L27 17 H28.5'
+            fill='none' stroke='${fill}' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/>
+      <!-- lightning bolt overlay -->
+      <path d='M24.4 12.5 L20.4 18.7 H22.6 L21.8 22.5 L25.8 16.1 H23.6 L24.4 12.5 Z'
+            fill='#fbbf24' stroke='${fill}' stroke-width='0.4' stroke-linejoin='round'/>
+    </svg>`,
+  )}`;
+
+const PIN_FOR = (kind: StationKind, source: "google" | "custom") => {
+  if (kind === "swap-moto") return MOTO_PIN_SVG("#ea580c"); // orange for swap
+  if (source === "custom") return CAR_PIN_SVG("#16a34a"); // green custom
+  return CAR_PIN_SVG("#2563eb"); // blue EV charger
+};
 
 /* Cluster bubble renderer (blue, like reference image) */
 const clusterRenderer: Renderer = {
