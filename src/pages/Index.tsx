@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { SearchBar } from "@/components/SearchBar";
 import { VehiclePicker, VehicleType } from "@/components/VehiclePicker";
 import { FilterDrawer, StationFilters, DEFAULT_FILTERS } from "@/components/FilterDrawer";
+import voltaLogo from "@/assets/volta-logo.png";
 
 const Index = () => {
   const [user, setUser] = useState<MockUser | null>(() => storage.getUser());
@@ -64,9 +65,11 @@ const Index = () => {
       <header className="border-b border-border bg-card/80 backdrop-blur-md z-20">
         <div className="flex items-center justify-between px-4 py-3 gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
-              <Zap size={18} fill="currentColor" />
-            </div>
+            <img
+              src={voltaLogo}
+              alt="Volta logo"
+              className="h-9 w-9 rounded-xl object-cover"
+            />
             <div className="min-w-0">
               <h1 className="text-base font-semibold text-foreground leading-tight truncate">
                 Volta
