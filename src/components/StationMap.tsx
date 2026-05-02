@@ -422,7 +422,7 @@ export const StationMap = ({
         title: s.name,
         optimized: true,
         icon: {
-          url: STATION_PIN_SVG("#2563eb"),
+          url: PIN_FOR(s.kind, s.source),
           scaledSize: new g.maps.Size(44, 54),
           anchor: new g.maps.Point(22, 52),
         },
@@ -503,13 +503,14 @@ export const StationMap = ({
     customMarkersRef.current = [];
 
     customStations.forEach((s) => {
-      const station: Station = { ...s, source: "custom", status: "online" };
+      const kind: StationKind = s.kind ?? classifyStation(s.name);
+      const station: Station = { ...s, source: "custom", status: "online", kind };
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
         map,
         title: s.name,
         icon: {
-          url: STATION_PIN_SVG("#16a34a"),
+          url: PIN_FOR(kind, "custom"),
           scaledSize: new g.maps.Size(44, 54),
           anchor: new g.maps.Point(22, 52),
         },
