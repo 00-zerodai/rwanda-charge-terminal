@@ -6,7 +6,7 @@ import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
 import { toast } from "sonner";
 import { buildMapsUrl, isIOS, isAndroid, openMapsOnIOS } from "@/lib/platform";
-import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route } from "lucide-react";
+import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route, Car, Bike } from "lucide-react";
 
 export const StationSheet = ({
   station,
@@ -101,6 +101,7 @@ export const StationSheet = ({
   }
 
   const isSaved = saved.some((s) => s.id === station.id);
+  const isSwap = station.kind === "swap-moto";
 
   const toggleSave = () => {
     if (isSaved) setSaved(saved.filter((s) => s.id !== station.id));
@@ -115,6 +116,7 @@ export const StationSheet = ({
           lng: station.lng,
           rating: station.rating,
           custom: station.source === "custom",
+          kind: station.kind,
         },
       ]);
   };
@@ -137,14 +139,36 @@ export const StationSheet = ({
           <>
             <div className="relative p-5 pb-4 border-b border-border">
               <div className="flex items-start gap-3 pr-2">
-                <div className="h-11 w-11 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                  <Zap size={20} fill="currentColor" />
+                <div
+                  className={
+                    "relative h-11 w-11 rounded-xl flex items-center justify-center shrink-0 " +
+                    (isSwap
+                      ? "bg-[hsl(24_95%_53%/0.15)] text-[hsl(24_95%_53%)]"
+                      : "bg-primary/15 text-primary")
+                  }
+                >
+                  {isSwap ? <Bike size={20} /> : <Car size={20} />}
+                  <Zap
+                    size={10}
+                    fill="currentColor"
+                    className="absolute -bottom-0.5 -right-0.5 bg-card rounded-full p-[1px]"
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-lg font-semibold text-foreground leading-tight truncate">
                     {station.name}
                   </h2>
                   <div className="mt-1 flex items-center gap-2 flex-wrap">
+                    <span
+                      className={
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                        (isSwap
+                          ? "bg-[hsl(24_95%_53%/0.15)] text-[hsl(24_95%_53%)]"
+                          : "bg-primary/15 text-primary")
+                      }
+                    >
+                      {isSwap ? "Battery swap" : "EV charger"}
+                    </span>
                     <StatusBadge status={station.status} />
                     {station.rating ? (
                       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
