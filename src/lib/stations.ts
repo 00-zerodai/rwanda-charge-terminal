@@ -10,8 +10,13 @@ export type StationKind = "swap-moto" | "ev-car";
  */
 export function classifyStation(name: string, types?: string[]): StationKind {
   const n = (name || "").toLowerCase();
+  // Strong swap-station signals
   if (/\b(spiro|ampersand)\b/.test(n)) return "swap-moto";
-  if (/\bswap\b/.test(n) && /(moto|bike|bajaj|boda|scooter)/.test(n)) return "swap-moto";
+  if (/battery\s*swap/.test(n)) return "swap-moto";
+  if (/\bswap\b/.test(n)) return "swap-moto";
+  // Strong EV-charging signals → car
+  if (/(charging\s*station|ev\s*charging|kabisa|fast\s*charger|supercharger)/.test(n)) return "ev-car";
+  // Default fallback
   return "ev-car";
 }
 
