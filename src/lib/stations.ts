@@ -1,12 +1,27 @@
 /// <reference types="google.maps" />
 import { SavedStation } from "./storage";
 
+export type StationKind = "swap-moto" | "ev-car";
+
+/**
+ * Classify a station by its name.
+ * Spiro and Ampersand operate motorcycle battery-swap stations in Rwanda,
+ * not regular EV chargers.
+ */
+export function classifyStation(name: string, types?: string[]): StationKind {
+  const n = (name || "").toLowerCase();
+  if (/\b(spiro|ampersand)\b/.test(n)) return "swap-moto";
+  if (/\bswap\b/.test(n) && /(moto|bike|bajaj|boda|scooter)/.test(n)) return "swap-moto";
+  return "ev-car";
+}
+
 export type Station = SavedStation & {
   source: "google" | "custom";
   status: "online" | "busy" | "offline" | "unknown";
   openNow?: boolean;
   types?: string[];
   nearLandmark?: string;
+  kind: StationKind;
 };
 
 const KIGALI_DEMO: Station[] = [
@@ -19,6 +34,7 @@ const KIGALI_DEMO: Station[] = [
     rating: 4.6,
     source: "custom",
     status: "online",
+    kind: "ev-car",
   },
   {
     id: "demo-2",
@@ -29,6 +45,7 @@ const KIGALI_DEMO: Station[] = [
     rating: 4.2,
     source: "custom",
     status: "busy",
+    kind: "ev-car",
   },
   {
     id: "demo-3",
@@ -39,6 +56,7 @@ const KIGALI_DEMO: Station[] = [
     rating: 4.8,
     source: "custom",
     status: "online",
+    kind: "ev-car",
   },
   {
     id: "demo-4",
@@ -49,6 +67,7 @@ const KIGALI_DEMO: Station[] = [
     rating: 3.9,
     source: "custom",
     status: "online",
+    kind: "ev-car",
   },
   {
     id: "demo-5",
@@ -59,6 +78,7 @@ const KIGALI_DEMO: Station[] = [
     rating: 4.1,
     source: "custom",
     status: "offline",
+    kind: "ev-car",
   },
 ];
 
@@ -88,5 +108,6 @@ export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station
     status: open === false ? "offline" : open === true ? "online" : "unknown",
     openNow: open ?? undefined,
     types: p.types,
+    kind: classifyStation(p.name ?? "", p.types),
   };
 }
