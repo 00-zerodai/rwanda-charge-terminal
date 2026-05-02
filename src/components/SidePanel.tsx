@@ -55,6 +55,7 @@ export const SidePanel = ({
                           ...s,
                           source: s.custom ? "custom" : "google",
                           status: "online",
+                          kind: s.kind ?? classifyStation(s.name),
                         });
                         onClose();
                       }}
