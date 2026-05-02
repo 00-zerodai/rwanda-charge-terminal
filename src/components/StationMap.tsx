@@ -201,6 +201,7 @@ export const StationMap = ({
   onRouteInfo,
   refreshKey = 0,
   flyTo,
+  vehicleType,
 }: {
   apiKey: string;
   onSelect: (s: Station) => void;
@@ -208,6 +209,7 @@ export const StationMap = ({
   onRouteInfo?: (info: { distanceText: string; durationText: string } | null) => void;
   refreshKey?: number;
   flyTo?: { lat: number; lng: number; zoom?: number; key?: number } | null;
+  vehicleType: "moto" | "car";
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
