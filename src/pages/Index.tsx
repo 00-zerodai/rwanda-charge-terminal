@@ -43,9 +43,9 @@ const Index = () => {
   if (!user) return <MockLogin onLogin={setUser} />;
   if (!vehicleType) return <VehiclePicker onPick={(v) => setVehicleType(v)} />;
 
-  // Compute nearest station id when nearestFirst is on
+  // Always compute nearest station so the map can highlight it automatically.
   const nearestId = (() => {
-    if (!filters.nearestFirst || !userLoc || visibleStations.length === 0) return null;
+    if (!userLoc || visibleStations.length === 0) return null;
     let bestId: string | null = null;
     let bestD = Infinity;
     for (const s of visibleStations) {
