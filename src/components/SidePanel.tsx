@@ -1,6 +1,6 @@
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { TerminalButton } from "./TerminalButton";
-import { Station } from "@/lib/stations";
+import { Station, classifyStation } from "@/lib/stations";
 import { X, MapPin, Clock, LogOut, Trash2 } from "lucide-react";
 
 export const SidePanel = ({
