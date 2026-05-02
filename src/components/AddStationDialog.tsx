@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation } from "@/lib/storage";
-import { X, MapPin, Locate } from "lucide-react";
+import { X, MapPin, Locate, Car, Bike } from "lucide-react";
 
 export const AddStationDialog = ({ onClose }: { onClose: () => void }) => {
   const [, setCustom] = useLocalState<SavedStation[]>("cf_custom_stations", []);
@@ -9,6 +9,7 @@ export const AddStationDialog = ({ onClose }: { onClose: () => void }) => {
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
+  const [kind, setKind] = useState<"ev-car" | "swap-moto">("ev-car");
   const [err, setErr] = useState<string | null>(null);
 
   const submit = (e: React.FormEvent) => {
@@ -26,6 +27,7 @@ export const AddStationDialog = ({ onClose }: { onClose: () => void }) => {
         lat: la,
         lng: ln,
         custom: true,
+        kind,
       },
     ]);
     onClose();
@@ -83,6 +85,35 @@ export const AddStationDialog = ({ onClose }: { onClose: () => void }) => {
               placeholder="e.g. Kigali Heights EV Hub"
             />
           </label>
+          <div>
+            <span className="block text-xs font-medium text-muted-foreground mb-1.5">Type</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setKind("ev-car")}
+                className={
+                  "flex items-center justify-center gap-2 h-11 rounded-lg border text-sm font-medium transition " +
+                  (kind === "ev-car"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-input text-foreground hover:bg-muted")
+                }
+              >
+                <Car size={16} /> EV charger
+              </button>
+              <button
+                type="button"
+                onClick={() => setKind("swap-moto")}
+                className={
+                  "flex items-center justify-center gap-2 h-11 rounded-lg border text-sm font-medium transition " +
+                  (kind === "swap-moto"
+                    ? "border-[hsl(24_95%_53%)] bg-[hsl(24_95%_53%/0.1)] text-[hsl(24_95%_53%)]"
+                    : "border-border bg-input text-foreground hover:bg-muted")
+                }
+              >
+                <Bike size={16} /> Battery swap
+              </button>
+            </div>
+          </div>
           <label className="block">
             <span className="block text-xs font-medium text-muted-foreground mb-1.5">Address</span>
             <input
