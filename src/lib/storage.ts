@@ -8,6 +8,7 @@ export type SavedStation = {
   lng: number;
   rating?: number;
   custom?: boolean;
+  kind?: "swap-moto" | "ev-car";
 };
 
 export type ChargeHistoryEntry = {
