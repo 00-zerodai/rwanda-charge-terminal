@@ -418,7 +418,8 @@ export const StationMap = ({
       }
       const stations = results
         .map(googlePlaceToStation)
-        .filter((s): s is Station => !!s);
+        .filter((s): s is Station => !!s)
+        .filter((s) => s.kind === wantedKindRef.current);
       writeCache(key, stations);
       mergeStations(g, map, stations);
       setStatus(stations.length ? "ready" : "empty");
@@ -428,8 +429,9 @@ export const StationMap = ({
       {
         location: { lat, lng },
         radius,
-        type: "electric_vehicle_charging_station" as any,
-        keyword: "EV charging",
+        ...(wantedKindRef.current === "swap-moto"
+          ? { keyword: "Spiro Ampersand battery swap motorcycle" }
+          : { type: "electric_vehicle_charging_station" as any, keyword: "EV charging Kabisa" }),
       },
       handle,
     );
