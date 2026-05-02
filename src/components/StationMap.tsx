@@ -374,7 +374,7 @@ export const StationMap = ({
     if (!center) return;
     const lat = center.lat();
     const lng = center.lng();
-    const key = cellKey(lat, lng);
+    const key = `${wantedKindRef.current}:${cellKey(lat, lng)}`;
     if (key === lastFetchKeyRef.current) return; // already fetched at this cell
     lastFetchKeyRef.current = key;
 
