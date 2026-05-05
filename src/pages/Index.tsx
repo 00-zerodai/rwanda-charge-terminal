@@ -14,6 +14,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { VehiclePicker, VehicleType } from "@/components/VehiclePicker";
 import { FilterDrawer, StationFilters, DEFAULT_FILTERS } from "@/components/FilterDrawer";
 import voltaLogo from "@/assets/volta-logo.png";
+import { GrowthFeedbackDialog } from "@/components/GrowthFeedbackDialog";
 
 const Index = () => {
   const [user, setUser] = useState<MockUser | null>(() => storage.getUser());
@@ -33,6 +34,21 @@ const Index = () => {
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [visibleStations, setVisibleStations] = useState<Station[]>([]);
   const isMobile = useIsMobile();
+  const [growthOpen, setGrowthOpen] = useState(false);
+  const [hasViewedStation, setHasViewedStation] = useState(false);
+
+  // Track when user opens a station; trigger growth popup after they close it (once per session).
+  useEffect(() => {
+    if (selected) {
+      setHasViewedStation(true);
+      return;
+    }
+    if (!hasViewedStation) return;
+    if (sessionStorage.getItem("volta_growth_shown") === "1") return;
+    sessionStorage.setItem("volta_growth_shown", "1");
+    const t = setTimeout(() => setGrowthOpen(true), 400);
+    return () => clearTimeout(t);
+  }, [selected, hasViewedStation]);
 
   // Keep filters.vehicleType in sync with header toggle
   useEffect(() => {
@@ -251,6 +267,7 @@ const Index = () => {
         }}
         hasUserLocation={!!userLoc}
       />
+      <GrowthFeedbackDialog open={growthOpen} onOpenChange={setGrowthOpen} />
     </div>
   );
 };
