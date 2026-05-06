@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation, classifyStation, StationKind, ConnectorType, SpeedTier } from "@/lib/stations";
+import { distanceMeters, formatDistance, SPEED_LABEL } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
 import type { MarkerClusterer as MarkerClustererType, Renderer } from "@googlemaps/markerclusterer";
 import { fetchRoute } from "@/lib/directions";
@@ -54,6 +55,12 @@ const PIN_FOR = (kind: StationKind, source: "google" | "custom") => {
   if (source === "custom") return CAR_PIN_SVG("#16a34a"); // green custom
   return CAR_PIN_SVG("#2563eb"); // blue EV charger
 };
+
+function escapeHtml(s: string): string {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
+  );
+}
 
 /* Cluster bubble renderer (blue, like reference image) */
 const clusterRenderer: Renderer = {
@@ -233,6 +240,11 @@ export const StationMap = ({
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const userLocationRef = useRef<google.maps.LatLngLiteral | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const idleTimerRef = useRef<number | null>(null);
   const lastFetchKeyRef = useRef<string | null>(null);
@@ -327,6 +339,72 @@ export const StationMap = ({
       if (stationMatchesFilters(s)) list.push(s);
     });
     stationsListenerRef.current?.(list);
+  }
+
+  function openCallout(s: Station, marker: google.maps.Marker) {
+    const map = mapRef.current;
+    const iw = infoWindowRef.current;
+    if (!map || !iw) return;
+    const isSwap = s.kind === "swap-moto";
+    const origin = userLocationRef.current;
+    const dist = origin
+      ? formatDistance(distanceMeters(origin, { lat: s.lat, lng: s.lng }))
+      : "";
+    const speed = s.speed
+      ? `${SPEED_LABEL[s.speed]}${s.kw ? ` · ${s.kw} kW` : ""}`
+      : "";
+    const connectors = (s.connectors ?? []).slice(0, 3);
+    const accent = isSwap ? "#ea580c" : "#2563eb";
+    const html = `
+      <div style="font-family:Inter,system-ui,sans-serif;min-width:200px;max-width:240px;padding:2px 2px 4px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:${accent};"></span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:${accent};">
+            ${isSwap ? "Battery swap" : "EV charger"}
+          </span>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#0f172a;line-height:1.3;margin-bottom:4px;">
+          ${escapeHtml(s.name)}
+        </div>
+        <div style="font-size:12px;color:#475569;line-height:1.4;">
+          ${dist ? `<div><strong>${dist}</strong> away</div>` : ""}
+          ${speed ? `<div>${escapeHtml(speed)}</div>` : ""}
+        </div>
+        ${
+          connectors.length
+            ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">${connectors
+                .map(
+                  (c) =>
+                    `<span style="font-size:10px;font-weight:500;background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;">${escapeHtml(
+                      c,
+                    )}</span>`,
+                )
+                .join("")}</div>`
+            : ""
+        }
+        <button id="cf-iw-details" style="margin-top:8px;width:100%;background:${accent};color:#fff;border:none;border-radius:6px;padding:7px 10px;font-size:12px;font-weight:600;cursor:pointer;">
+          View details
+        </button>
+      </div>
+    `;
+    iw.setContent(html);
+    iw.open({ map, anchor: marker });
+    const g = (window as any).google as typeof google | undefined;
+    g?.maps.event.addListenerOnce(iw, "domready", () => {
+      const btn = document.getElementById("cf-iw-details");
+      if (!btn) return;
+      btn.onclick = () => {
+        iw.close();
+        const svc = placesRef.current;
+        if (g && svc && !s.nearLandmark) {
+          fetchLandmarkFor(g, svc, s).then((landmark) => {
+            onSelectRef.current({ ...s, nearLandmark: landmark });
+          });
+        } else {
+          onSelectRef.current(s);
+        }
+      };
+    });
   }
 
   /* Pulsing ring overlay for nearest station */
@@ -454,6 +532,16 @@ export const StationMap = ({
           },
         });
         setStatus("ready");
+
+        // InfoWindow used for marker callout previews
+        infoWindowRef.current = new g.maps.InfoWindow({
+          maxWidth: 260,
+          disableAutoPan: false,
+        });
+        // Close callout on map click
+        map.addListener("click", () => {
+          infoWindowRef.current?.close();
+        });
 
         // Best-effort geolocation (silent fallback)
         if ("geolocation" in navigator) {
@@ -612,14 +700,7 @@ export const StationMap = ({
       (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
-        const svc = placesRef.current;
-        if (svc && !s.nearLandmark) {
-          fetchLandmarkFor(g, svc, s).then((landmark) => {
-            onSelect({ ...s, nearLandmark: landmark });
-          });
-        } else {
-          onSelect(s);
-        }
+        openCallout(s, marker);
       });
       googleMarkersRef.current.push(marker);
       markerByIdRef.current.set(s.id, marker);
@@ -708,7 +789,7 @@ export const StationMap = ({
       (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
-        onSelect(station);
+        openCallout(station, marker);
       });
       customMarkersRef.current.push(marker);
     });

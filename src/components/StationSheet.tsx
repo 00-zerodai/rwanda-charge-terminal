@@ -6,7 +6,7 @@ import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { ChargingFlow } from "./ChargingFlow";
 import { toast } from "sonner";
 import { buildMapsUrl, isIOS, isAndroid, openMapsOnIOS } from "@/lib/platform";
-import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route, Car, Bike, Plug, Gauge, BatteryCharging } from "lucide-react";
+import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route, Car, Bike, Plug, Gauge, BatteryCharging, Gift, Smartphone, CreditCard, Tag } from "lucide-react";
 import { SPEED_LABEL, SPEED_KW } from "@/lib/stations";
 
 export const StationSheet = ({
@@ -276,6 +276,57 @@ export const StationSheet = ({
                     </div>
                   </>
                 )}
+              </div>
+
+              {/* Pricing placeholder */}
+              <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-border bg-muted/10 p-3">
+                <Tag size={14} className="text-primary mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {isSwap ? "Swap price" : "Price per kWh"}
+                  </div>
+                  <div className="text-sm font-medium text-foreground mt-0.5">
+                    {isSwap
+                      ? station.swapPrice
+                        ? `${station.swapPrice} RWF / swap`
+                        : "— RWF · Coming soon"
+                      : station.pricePerKwh
+                      ? `${station.pricePerKwh} RWF / kWh`
+                      : "— RWF · Coming soon"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Rewards placeholder */}
+              <div className="flex items-start gap-2.5 rounded-xl border border-border bg-[hsl(var(--success))]/5 p-3">
+                <Gift size={14} className="text-[hsl(var(--success))] mt-0.5 shrink-0" />
+                <div className="text-xs text-foreground/90">
+                  Earn <span className="font-semibold text-[hsl(var(--success))]">Volta points</span> when charging at partner stations.
+                  <span className="block text-[11px] text-muted-foreground mt-0.5">Rewards launching soon.</span>
+                </div>
+              </div>
+
+              {/* Payments placeholder */}
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Pay
+                  </h3>
+                  <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    Coming soon
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground opacity-70">
+                    <Smartphone size={11} /> MTN MoMo
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground opacity-70">
+                    <Smartphone size={11} /> Airtel Money
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground opacity-70">
+                    <CreditCard size={11} /> Card
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-2">

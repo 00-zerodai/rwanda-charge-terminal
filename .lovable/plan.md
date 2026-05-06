@@ -1,60 +1,97 @@
-## Goal
+# Volta Smarter Discovery Upgrade
 
-Visually distinguish **battery-swap stations** (Spiro, Ampersand) from **EV charging stations** (cars) on the map and in the station sheet, using two different pin glyphs:
+Transform the home screen from "map only" into a hybrid map + nearby list, add tap-to-preview callouts on markers, and lay UI groundwork for connectors compatibility, rewards, payments, and pricing.
 
-- 🏍️ **Motorcycle + lightning bolt** → battery swap stations (Spiro, Ampersand)
-- 🚗 **Car + lightning bolt** → regular EV charging stations
+## 1. Hybrid Map + List Layout (`src/pages/Index.tsx`)
 
-## How we detect station type
+Restructure mobile layout (desktop keeps existing right side panel):
 
-Google Places doesn't return a "swap station" type, so we classify by **name match**. Add a helper in `src/lib/stations.ts`:
-
-```ts
-export type StationKind = "swap-moto" | "ev-car";
-
-export function classifyStation(name: string): StationKind {
-  const n = name.toLowerCase();
-  if (/\b(spiro|ampersand)\b/.test(n)) return "swap-moto";
-  if (/\bswap\b/.test(n) && /(moto|bike|bajaj|boda)/.test(n)) return "swap-moto";
-  return "ev-car";
-}
+```text
+┌─────────── Header ───────────┐
+│ Logo · Moto/Car · Filter ... │
+├──────────────────────────────┤
+│                              │
+│   Map (60% height)           │
+│                              │
+├──────────────────────────────┤
+│ Nearby stations  ↕ scroll    │
+│ ┌──────────────────────────┐ │
+│ │ 1.2km · Kigali Heights   │ │
+│ │ EV Charger · Fast 50kW   │ │
+│ ├──────────────────────────┤ │
+│ │ 2.4km · CHIC Mall ...    │ │
+│ └──────────────────────────┘ │
+└──────────────────────────────┘
 ```
 
-Attach `kind: StationKind` to every `Station` in `googlePlaceToStation` and when building custom stations.
+- Build new `src/components/NearbyStationsList.tsx`. Receives `visibleStations`, `userLoc`, `onSelect`, `nearestId`. Sorts by distance from `userLoc` (fallback: Kigali center). Each row: distance pill, name, kind icon (car/moto), speed/connector chip, "Nearest" badge if applicable. Tapping a row calls `onSelect(station)` and `setFlyTo` to recenter map.
+- Mobile: split screen — map ~55–60dvh, list scrolls below. Replace current full-height map section with a flex column.
+- Desktop (lg+): keep current map + right StationSheet, but also render the list as a left rail under the search bar OR keep existing layout (skip list on desktop to avoid clutter — list is mobile/tablet primary).
+- The bottom Sheet for station details on mobile is replaced by the marker callout flow (see #2). Full sheet still opens via "View details" from callout or list row.
 
-## Pin icons (inline SVG, same style as current pin)
+## 2. Map Marker Callouts (`src/components/StationMap.tsx`)
 
-Replace the single `STATION_PIN_SVG` in `src/components/StationMap.tsx` with two variants that share the existing teardrop shape and white circle, but swap the inner glyph:
+- Replace immediate `onSelect(station)` on marker click with a Google `InfoWindow` styled to match the app (rounded card, dark theme).
+- Callout content:
+  - Station name (bold)
+  - Distance from user
+  - Kind label (Battery swap / EV charger)
+  - Speed (Fast 50 kW) and 1–2 connector chips
+  - Primary button: "View details" → calls existing `onSelect(station)` to open the full sheet
+- Add new prop `onPreview(station)` (optional) — internally just opens the InfoWindow; existing `onSelect` is reserved for the full details sheet.
+- Tapping anywhere else on the map closes the InfoWindow.
+- The list rows in #1 also call `onSelect` directly (skip callout for list taps — user already chose).
 
-- **`CAR_PIN_SVG(fill)`** — car silhouette + small lightning bolt (current default look, refined)
-- **`MOTO_PIN_SVG(fill)`** — motorcycle silhouette + small lightning bolt
+## 3. Connector Types & Compatibility (`src/lib/stations.ts`, `FilterDrawer.tsx`)
 
-Color coding:
-- EV car charging: blue `#2563eb` (unchanged)
-- Spiro / Ampersand swap: orange `#ea580c` (so they pop against the blue cluster of regular chargers)
-- Custom user-added: green `#16a34a` (unchanged)
+- Extend `ConnectorType` union to include `"CCS1" | "CCS2" | "Type 2" | "CHAdeMO" | "GB/T" | "NACS"` (rename current `"CCS"` to `"CCS2"` as Rwanda default; keep "Tesla" mapped to NACS).
+- Update `inferChargingSpec` heuristics to assign realistic combos (Type 2 + CCS2 default; superchargers → NACS+CCS2; etc.).
+- Update `FilterDrawer` connector checkbox list to include new types.
+- Station details (`StationSheet.tsx`) already renders connector chips — no change needed beyond data.
 
-Marker creation in `mergeStations` and the custom-stations effect picks the SVG by `station.kind`.
+## 4. Swap vs Charging Differentiation
 
-## Station sheet
+Already implemented (orange moto pin, blue car pin, header toggle, `wantedKind` filter). Keep as-is, just verify list rows in #1 also use the right icon/label.
 
-In `src/components/StationSheet.tsx`:
-- Replace the generic `Zap` icon next to the station name with a `Bike` icon (lucide) for swap stations and `Car` icon for EV chargers, both with a small `Zap` overlay/adjacent.
-- Add a small badge under the title: **"Battery swap"** (orange) or **"EV charger"** (blue).
+## 5. Rewards UI Placeholder
 
-## Legend
+- `src/components/SidePanel.tsx` (user/profile area): add a "Volta Points" card near the top showing `120 pts` (hardcoded) with a small gift icon and subtitle "Earn points by charging at partner stations (coming soon)".
+- `src/components/StationSheet.tsx`: add a small info row under specs: "⭐ Earn Volta points when charging here" (muted style, no action).
 
-Add a tiny legend chip to the map HUD (top-left, under the status pill) showing both pin styles with labels "EV charging" and "Battery swap" so first-time users understand the difference. Collapsible/dismissible — stored in `localStorage` so it only shows once.
+## 6. Future Payments UI Placeholder (`StationSheet.tsx`)
 
-## Files to change
+Add a collapsed-style section above the action buttons:
 
-- `src/lib/stations.ts` — add `StationKind`, `classifyStation`, set `kind` on every Station
-- `src/components/StationMap.tsx` — two pin SVGs, pick by `kind`, add legend chip
-- `src/components/StationSheet.tsx` — kind-aware icon + badge
-- `src/components/AddStationDialog.tsx` — let users pick "EV charger" vs "Battery swap" when adding a custom station (defaults to EV charger)
-- `src/lib/storage.ts` — add optional `kind?: StationKind` to `SavedStation`
+```text
+Pay (coming soon)
+[ MTN MoMo ] [ Airtel Money ] [ Card ]   — disabled chips
+```
 
-## Out of scope
+Disabled buttons with `opacity-50`, no handler. Small caption: "In-app payments coming soon".
 
-- No backend / data source changes — classification is purely client-side from the station name.
-- Existing cached stations in localStorage will be auto-classified on next load (no migration needed since `classifyStation` runs from `name`).
+## 7. Price Comparison Placeholder
+
+- Extend `Station` type with optional `pricePerKwh?: number` and `swapPrice?: number` (no data sources yet — all undefined).
+- In `StationSheet.tsx` specs card and in NearbyStationsList rows: show "RWF — / kWh · Coming soon" muted line when undefined; show formatted price when present.
+
+## 8. Nearest Station UX
+
+Already done (green pulsing ring, "Nearest" label, no auto-open). Keep. Also surface "Nearest" badge on the matching list row in #1.
+
+## 9 & 10. UI/Performance
+
+- Reuse existing marker clusterer; no extra API calls — list reads from already-fetched `visibleStations` state in `Index.tsx`.
+- List uses `react`'s built-in virtualization-free render capped to nearest ~50 (slice after sort) for smooth scroll.
+- Maintain mobile-first spacing, reuse Tailwind tokens, no new deps.
+
+## Files Touched
+
+- `src/pages/Index.tsx` — layout restructure, pass `userLoc` to list
+- `src/components/NearbyStationsList.tsx` — NEW
+- `src/components/StationMap.tsx` — marker InfoWindow callout, route callout button to `onSelect`
+- `src/lib/stations.ts` — expanded connector types + heuristics, optional price fields
+- `src/components/FilterDrawer.tsx` — new connector options
+- `src/components/StationSheet.tsx` — rewards line, payments placeholder, price line
+- `src/components/SidePanel.tsx` — Volta Points card
+
+No backend, schema, or dependency changes.

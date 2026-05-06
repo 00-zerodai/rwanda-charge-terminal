@@ -15,6 +15,7 @@ import { VehiclePicker, VehicleType } from "@/components/VehiclePicker";
 import { FilterDrawer, StationFilters, DEFAULT_FILTERS } from "@/components/FilterDrawer";
 import voltaLogo from "@/assets/volta-logo.png";
 import { GrowthFeedbackDialog } from "@/components/GrowthFeedbackDialog";
+import { NearbyStationsList } from "@/components/NearbyStationsList";
 
 const Index = () => {
   const [user, setUser] = useState<MockUser | null>(() => storage.getUser());
@@ -163,7 +164,7 @@ const Index = () => {
       </header>
 
       <main className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        <section className="relative flex-1 min-h-0 p-3 lg:p-3">
+        <section className="relative flex-1 min-h-0 p-3 lg:p-3 lg:flex-1 h-[55dvh] lg:h-auto">
           <StationMap
             apiKey={apiKey}
             onSelect={setSelected}
@@ -226,6 +227,21 @@ const Index = () => {
             )}
           </div>
         </section>
+
+        {/* Mobile: scrollable nearby list under the map */}
+        {isMobile && (
+          <section className="flex-1 min-h-0 overflow-y-auto">
+            <NearbyStationsList
+              stations={visibleStations}
+              userLoc={userLoc}
+              onSelect={(s) => {
+                setFlyTo({ lat: s.lat, lng: s.lng, zoom: 15, key: Date.now() });
+                setSelected(s);
+              }}
+              nearestId={nearestId}
+            />
+          </section>
+        )}
 
         {/* Desktop: persistent right side panel */}
         {!isMobile && (
