@@ -93,6 +93,41 @@ export function formatDistance(m: number): string {
   return `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
 }
 
+/** Format an RWF price with thousands separators */
+export function formatRwf(n: number): string {
+  return `${n.toLocaleString("en-US")} RWF`;
+}
+
+/** Deterministic hash from a string id */
+function hashId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/**
+ * Mock realistic pricing in RWF based on station id, kind and speed tier.
+ * EV chargers → price per kWh (220–520 RWF).
+ * Moto swap stations → swap session price (1200–3200 RWF).
+ */
+export function mockPriceFor(
+  id: string,
+  kind: StationKind,
+  speed?: SpeedTier,
+): { pricePerKwh?: number; swapPrice?: number } {
+  const h = hashId(id);
+  if (kind === "swap-moto") {
+    const base = 1500 + (h % 17) * 100; // 1500..3100
+    return { swapPrice: Math.round(base / 50) * 50 };
+  }
+  let base = 280;
+  if (speed === "slow") base = 220;
+  else if (speed === "fast") base = 320;
+  else if (speed === "ultra") base = 420;
+  const jitter = (h % 11) * 10; // 0..100
+  return { pricePerKwh: base + jitter };
+}
+
 export type Station = SavedStation & {
   source: "google" | "custom";
   status: "online" | "busy" | "offline" | "unknown";
@@ -170,7 +205,8 @@ const KIGALI_DEMO: Station[] = [
 export function getDemoStations(): Station[] {
   return KIGALI_DEMO.map((s) => {
     const spec = inferChargingSpec(s.name, s.kind);
-    return spec ? { ...s, ...spec } : s;
+    const withSpec = spec ? { ...s, ...spec } : s;
+    return { ...withSpec, ...mockPriceFor(withSpec.id, withSpec.kind, withSpec.speed) };
   });
 }
 
@@ -188,6 +224,7 @@ export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station
   const name = p.name ?? "Unknown station";
   const kind = classifyStation(name, p.types);
   const spec = inferChargingSpec(name, kind);
+  const price = mockPriceFor(p.place_id, kind, spec?.speed);
   return {
     id: p.place_id,
     name,
@@ -203,5 +240,7 @@ export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station
     connectors: spec?.connectors,
     speed: spec?.speed,
     kw: spec?.kw,
+    pricePerKwh: price.pricePerKwh,
+    swapPrice: price.swapPrice,
   };
 }

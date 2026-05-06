@@ -136,13 +136,13 @@ const Index = () => {
               aria-label="Open filters"
               className={
                 "relative h-11 w-11 sm:h-9 sm:w-9 inline-flex items-center justify-center rounded-lg transition " +
-                (filters.nearestFirst || filters.connectors.length || filters.speeds.length
+                (filters.nearestFirst || filters.priceLowFirst || filters.connectors.length || filters.speeds.length
                   ? "text-primary bg-primary/10 hover:bg-primary/15"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted")
               }
             >
               <Filter size={16} />
-              {(filters.nearestFirst || filters.connectors.length > 0 || filters.speeds.length > 0) && (
+              {(filters.nearestFirst || filters.priceLowFirst || filters.connectors.length > 0 || filters.speeds.length > 0) && (
                 <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />
               )}
             </button>
@@ -239,6 +239,7 @@ const Index = () => {
                 setSelected(s);
               }}
               nearestId={nearestId}
+              priceLowFirst={filters.priceLowFirst}
             />
           </section>
         )}

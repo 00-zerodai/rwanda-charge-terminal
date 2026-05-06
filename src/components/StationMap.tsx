@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation, classifyStation, StationKind, ConnectorType, SpeedTier } from "@/lib/stations";
-import { distanceMeters, formatDistance, SPEED_LABEL } from "@/lib/stations";
+import { distanceMeters, formatDistance, formatRwf, SPEED_LABEL } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
 import type { MarkerClusterer as MarkerClustererType, Renderer } from "@googlemaps/markerclusterer";
 import { fetchRoute } from "@/lib/directions";
@@ -353,6 +353,11 @@ export const StationMap = ({
     const speed = s.speed
       ? `${SPEED_LABEL[s.speed]}${s.kw ? ` · ${s.kw} kW` : ""}`
       : "";
+    const price = s.pricePerKwh
+      ? `${formatRwf(s.pricePerKwh)}/kWh`
+      : s.swapPrice
+      ? `${formatRwf(s.swapPrice)}/swap`
+      : "";
     const connectors = (s.connectors ?? []).slice(0, 3);
     const accent = isSwap ? "#ea580c" : "#2563eb";
     const html = `
@@ -369,6 +374,7 @@ export const StationMap = ({
         <div style="font-size:12px;color:#475569;line-height:1.4;">
           ${dist ? `<div><strong>${dist}</strong> away</div>` : ""}
           ${speed ? `<div>${escapeHtml(speed)}</div>` : ""}
+          ${price ? `<div style="margin-top:2px;font-weight:600;color:${accent};">${escapeHtml(price)}</div>` : ""}
         </div>
         ${
           connectors.length
