@@ -1,12 +1,13 @@
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { Bike, Car, Filter, Plug, Zap, Locate } from "lucide-react";
+import { Bike, Car, Filter, Plug, Zap, Locate, Tag } from "lucide-react";
 import { ConnectorType, SpeedTier, SPEED_LABEL, SPEED_KW } from "@/lib/stations";
 import { VehicleType } from "./VehiclePicker";
 
 export type StationFilters = {
   vehicleType: VehicleType;
   nearestFirst: boolean;
+  priceLowFirst: boolean;
   connectors: ConnectorType[]; // empty = all
   speeds: SpeedTier[]; // empty = all
 };
@@ -14,6 +15,7 @@ export type StationFilters = {
 export const DEFAULT_FILTERS = (vehicleType: VehicleType): StationFilters => ({
   vehicleType,
   nearestFirst: false,
+  priceLowFirst: false,
   connectors: [],
   speeds: [],
 });
@@ -110,6 +112,25 @@ export const FilterDrawer = ({
                 checked={filters.nearestFirst}
                 disabled={!hasUserLocation}
                 onCheckedChange={(v) => onChange({ ...filters, nearestFirst: v })}
+              />
+            </div>
+          </section>
+
+          {/* Price sort */}
+          <section>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <Tag size={16} className="text-primary mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Price: low to high</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Sort stations by cheapest price first.
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={filters.priceLowFirst}
+                onCheckedChange={(v) => onChange({ ...filters, priceLowFirst: v })}
               />
             </div>
           </section>
