@@ -239,6 +239,7 @@ const Index = () => {
                 setSelected(s);
               }}
               nearestId={nearestId}
+              priceLowFirst={filters.priceLowFirst}
             />
           </section>
         )}
