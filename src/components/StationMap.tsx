@@ -335,6 +335,73 @@ export const StationMap = ({
     stationsListenerRef.current?.(list);
   }
 
+  function openCallout(s: Station, marker: google.maps.Marker) {
+    const map = mapRef.current;
+    const iw = infoWindowRef.current;
+    if (!map || !iw) return;
+    const isSwap = s.kind === "swap-moto";
+    const origin = userLocationRef.current;
+    const dist = origin
+      ? formatDistance(distanceMeters(origin, { lat: s.lat, lng: s.lng }))
+      : "";
+    const speed = s.speed
+      ? `${SPEED_LABEL[s.speed]}${s.kw ? ` · ${s.kw} kW` : ""}`
+      : "";
+    const connectors = (s.connectors ?? []).slice(0, 3);
+    const accent = isSwap ? "#ea580c" : "#2563eb";
+    const html = `
+      <div style="font-family:Inter,system-ui,sans-serif;min-width:200px;max-width:240px;padding:2px 2px 4px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:${accent};"></span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:${accent};">
+            ${isSwap ? "Battery swap" : "EV charger"}
+          </span>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#0f172a;line-height:1.3;margin-bottom:4px;">
+          ${escapeHtml(s.name)}
+        </div>
+        <div style="font-size:12px;color:#475569;line-height:1.4;">
+          ${dist ? `<div><strong>${dist}</strong> away</div>` : ""}
+          ${speed ? `<div>${escapeHtml(speed)}</div>` : ""}
+        </div>
+        ${
+          connectors.length
+            ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">${connectors
+                .map(
+                  (c) =>
+                    `<span style="font-size:10px;font-weight:500;background:#f1f5f9;color:#0f172a;padding:2px 6px;border-radius:4px;">${escapeHtml(
+                      c,
+                    )}</span>`,
+                )
+                .join("")}</div>`
+            : ""
+        }
+        <button id="cf-iw-details" style="margin-top:8px;width:100%;background:${accent};color:#fff;border:none;border-radius:6px;padding:7px 10px;font-size:12px;font-weight:600;cursor:pointer;">
+          View details
+        </button>
+      </div>
+    `;
+    iw.setContent(html);
+    iw.open({ map, anchor: marker });
+    const listener = g_maps_event_addOnce(iw, "domready", () => {
+      const btn = document.getElementById("cf-iw-details");
+      if (btn) {
+        btn.onclick = () => {
+          iw.close();
+          const svc = placesRef.current;
+          const g = (window as any).google as typeof google | undefined;
+          if (g && svc && !s.nearLandmark) {
+            fetchLandmarkFor(g, svc, s).then((landmark) => {
+              onSelectRef.current({ ...s, nearLandmark: landmark });
+            });
+          } else {
+            onSelectRef.current(s);
+          }
+        };
+      }
+    });
+  }
+
   /* Pulsing ring overlay for nearest station */
   const nearestOverlayRef = useRef<google.maps.OverlayView | null>(null);
   const nearestIdRef = useRef<string | null>(null);
