@@ -1,7 +1,7 @@
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { TerminalButton } from "./TerminalButton";
 import { Station, classifyStation } from "@/lib/stations";
-import { X, MapPin, Clock, LogOut, Trash2 } from "lucide-react";
+import { X, MapPin, Clock, LogOut, Trash2, Gift } from "lucide-react";
 
 export const SidePanel = ({
   open,
@@ -35,6 +35,24 @@ export const SidePanel = ({
         </div>
 
         <div className="p-5 space-y-7">
+          {/* Volta Points - rewards placeholder */}
+          <section className="rounded-2xl border border-border bg-gradient-to-br from-[hsl(var(--success))]/10 to-primary/5 p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-11 w-11 rounded-xl bg-[hsl(var(--success))]/15 text-[hsl(var(--success))] flex items-center justify-center shrink-0">
+                <Gift size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-foreground leading-none">120</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Volta pts</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                  Earn points by charging at partner stations. Redeem rewards — coming soon.
+                </p>
+              </div>
+            </div>
+          </section>
+
           <section>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-foreground">Saved stations</h3>
