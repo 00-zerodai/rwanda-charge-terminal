@@ -56,6 +56,12 @@ const PIN_FOR = (kind: StationKind, source: "google" | "custom") => {
   return CAR_PIN_SVG("#2563eb"); // blue EV charger
 };
 
+function escapeHtml(s: string): string {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
+  );
+}
+
 /* Cluster bubble renderer (blue, like reference image) */
 const clusterRenderer: Renderer = {
   render: ({ count, position }, stats) => {
@@ -383,22 +389,21 @@ export const StationMap = ({
     `;
     iw.setContent(html);
     iw.open({ map, anchor: marker });
-    const listener = g_maps_event_addOnce(iw, "domready", () => {
+    const g = (window as any).google as typeof google | undefined;
+    g?.maps.event.addListenerOnce(iw, "domready", () => {
       const btn = document.getElementById("cf-iw-details");
-      if (btn) {
-        btn.onclick = () => {
-          iw.close();
-          const svc = placesRef.current;
-          const g = (window as any).google as typeof google | undefined;
-          if (g && svc && !s.nearLandmark) {
-            fetchLandmarkFor(g, svc, s).then((landmark) => {
-              onSelectRef.current({ ...s, nearLandmark: landmark });
-            });
-          } else {
-            onSelectRef.current(s);
-          }
-        };
-      }
+      if (!btn) return;
+      btn.onclick = () => {
+        iw.close();
+        const svc = placesRef.current;
+        if (g && svc && !s.nearLandmark) {
+          fetchLandmarkFor(g, svc, s).then((landmark) => {
+            onSelectRef.current({ ...s, nearLandmark: landmark });
+          });
+        } else {
+          onSelectRef.current(s);
+        }
+      };
     });
   }
 
