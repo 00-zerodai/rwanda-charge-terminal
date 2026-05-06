@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Station, distanceMeters, formatDistance, SPEED_LABEL } from "@/lib/stations";
+import { Station, distanceMeters, formatDistance, formatRwf, SPEED_LABEL } from "@/lib/stations";
 import { Bike, Car, Zap, Sparkles } from "lucide-react";
 import { KIGALI_CENTER } from "@/lib/google-maps";
 
@@ -8,20 +8,29 @@ export const NearbyStationsList = ({
   userLoc,
   onSelect,
   nearestId,
+  priceLowFirst = false,
 }: {
   stations: Station[];
   userLoc: { lat: number; lng: number } | null;
   onSelect: (s: Station) => void;
   nearestId: string | null;
+  priceLowFirst?: boolean;
 }) => {
   const origin = userLoc ?? KIGALI_CENTER;
 
   const sorted = useMemo(() => {
-    return [...stations]
+    const withDist = [...stations]
       .map((s) => ({ s, d: distanceMeters(origin, { lat: s.lat, lng: s.lng }) }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, 50);
-  }, [stations, origin.lat, origin.lng]);
+      .sort((a, b) => a.d - b.d);
+    if (priceLowFirst) {
+      withDist.sort((a, b) => {
+        const pa = a.s.pricePerKwh ?? a.s.swapPrice ?? Number.POSITIVE_INFINITY;
+        const pb = b.s.pricePerKwh ?? b.s.swapPrice ?? Number.POSITIVE_INFINITY;
+        return pa - pb;
+      });
+    }
+    return withDist.slice(0, 50);
+  }, [stations, origin.lat, origin.lng, priceLowFirst]);
 
   return (
     <div className="bg-card border-t border-border">
@@ -87,9 +96,9 @@ export const NearbyStationsList = ({
                   </div>
                   <div className="mt-0.5 text-[11px] text-muted-foreground/80">
                     {s.pricePerKwh
-                      ? `${s.pricePerKwh} RWF/kWh`
+                      ? `${formatRwf(s.pricePerKwh)}/kWh`
                       : s.swapPrice
-                      ? `${s.swapPrice} RWF/swap`
+                      ? `${formatRwf(s.swapPrice)}/swap`
                       : "Pricing — coming soon"}
                   </div>
                 </div>
