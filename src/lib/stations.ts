@@ -2,7 +2,15 @@
 import { SavedStation } from "./storage";
 
 export type StationKind = "swap-moto" | "ev-car";
-export type ConnectorType = "Type 2" | "CCS" | "CHAdeMO" | "Tesla";
+export type ConnectorType =
+  | "Type 2"
+  | "CCS"
+  | "CCS1"
+  | "CCS2"
+  | "CHAdeMO"
+  | "GB/T"
+  | "NACS"
+  | "Tesla";
 export type SpeedTier = "slow" | "fast" | "ultra";
 
 export const SPEED_LABEL: Record<SpeedTier, string> = {
@@ -45,22 +53,22 @@ export function inferChargingSpec(
   if (kind !== "ev-car") return undefined;
   const n = (name || "").toLowerCase();
   if (/supercharger|tesla/.test(n)) {
-    return { connectors: ["Tesla", "CCS"], speed: "ultra", kw: 250 };
+    return { connectors: ["NACS", "CCS2"], speed: "ultra", kw: 250 };
   }
   if (/kabisa|ultra|hyper/.test(n)) {
-    return { connectors: ["CCS", "CHAdeMO", "Type 2"], speed: "ultra", kw: 180 };
+    return { connectors: ["CCS2", "CHAdeMO", "Type 2"], speed: "ultra", kw: 180 };
   }
   if (/fast|dc|rapid/.test(n)) {
-    return { connectors: ["CCS", "Type 2"], speed: "fast", kw: 75 };
+    return { connectors: ["CCS2", "Type 2"], speed: "fast", kw: 75 };
   }
   if (/mall|hub|heights|chic|hotel|lodge/.test(n)) {
-    return { connectors: ["Type 2", "CCS"], speed: "fast", kw: 50 };
+    return { connectors: ["Type 2", "CCS2"], speed: "fast", kw: 50 };
   }
   // Deterministic-ish fallback by name length so it doesn't churn
   const h = (name || "").length % 3;
   if (h === 0) return { connectors: ["Type 2"], speed: "slow", kw: 22 };
-  if (h === 1) return { connectors: ["Type 2", "CCS"], speed: "fast", kw: 50 };
-  return { connectors: ["CCS", "CHAdeMO"], speed: "fast", kw: 60 };
+  if (h === 1) return { connectors: ["Type 2", "CCS2"], speed: "fast", kw: 50 };
+  return { connectors: ["CCS2", "CHAdeMO"], speed: "fast", kw: 60 };
 }
 
 /** Haversine distance in meters */
@@ -95,6 +103,10 @@ export type Station = SavedStation & {
   connectors?: ConnectorType[];
   speed?: SpeedTier;
   kw?: number;
+  /** Future: price per kWh in RWF for EV chargers */
+  pricePerKwh?: number;
+  /** Future: swap session price in RWF for moto swap stations */
+  swapPrice?: number;
 };
 
 const KIGALI_DEMO: Station[] = [

@@ -18,7 +18,14 @@ export const DEFAULT_FILTERS = (vehicleType: VehicleType): StationFilters => ({
   speeds: [],
 });
 
-const ALL_CONNECTORS: ConnectorType[] = ["Type 2", "CCS", "CHAdeMO", "Tesla"];
+const ALL_CONNECTORS: ConnectorType[] = [
+  "Type 2",
+  "CCS2",
+  "CCS1",
+  "CHAdeMO",
+  "GB/T",
+  "NACS",
+];
 const ALL_SPEEDS: SpeedTier[] = ["slow", "fast", "ultra"];
 
 function toggle<T>(arr: T[], v: T): T[] {
