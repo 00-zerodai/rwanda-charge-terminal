@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { Download, Share, Plus, Zap } from "lucide-react";
 
-const SHOW_DELAY_MS = 30_000;
+const SHOW_DELAY_MS = 1_500;
 
 export const InstallPrompt = () => {
   const { platform, canShow, promptInstall, dismiss, hasNativePrompt } = useInstallPrompt();
