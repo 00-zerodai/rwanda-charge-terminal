@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation, classifyStation, StationKind, ConnectorType, SpeedTier } from "@/lib/stations";
+import { distanceMeters, formatDistance, SPEED_LABEL } from "@/lib/stations";
 import { useLocalState, SavedStation } from "@/lib/storage";
 import type { MarkerClusterer as MarkerClustererType, Renderer } from "@googlemaps/markerclusterer";
 import { fetchRoute } from "@/lib/directions";
@@ -233,6 +234,11 @@ export const StationMap = ({
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const userLocationRef = useRef<google.maps.LatLngLiteral | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const idleTimerRef = useRef<number | null>(null);
   const lastFetchKeyRef = useRef<string | null>(null);
@@ -455,6 +461,16 @@ export const StationMap = ({
         });
         setStatus("ready");
 
+        // InfoWindow used for marker callout previews
+        infoWindowRef.current = new g.maps.InfoWindow({
+          maxWidth: 260,
+          disableAutoPan: false,
+        });
+        // Close callout on map click
+        map.addListener("click", () => {
+          infoWindowRef.current?.close();
+        });
+
         // Best-effort geolocation (silent fallback)
         if ("geolocation" in navigator) {
           navigator.geolocation.getCurrentPosition(
@@ -612,14 +628,7 @@ export const StationMap = ({
       (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
-        const svc = placesRef.current;
-        if (svc && !s.nearLandmark) {
-          fetchLandmarkFor(g, svc, s).then((landmark) => {
-            onSelect({ ...s, nearLandmark: landmark });
-          });
-        } else {
-          onSelect(s);
-        }
+        openCallout(s, marker);
       });
       googleMarkersRef.current.push(marker);
       markerByIdRef.current.set(s.id, marker);
@@ -708,7 +717,7 @@ export const StationMap = ({
       (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
-        onSelect(station);
+        openCallout(station, marker);
       });
       customMarkersRef.current.push(marker);
     });
