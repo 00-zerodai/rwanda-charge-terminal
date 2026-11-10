@@ -1,4 +1,5 @@
 import { Bike, Car, Zap } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 export type VehicleType = "moto" | "car";
 
@@ -7,16 +8,26 @@ export const VehiclePicker = ({
 }: {
   onPick: (v: VehicleType) => void;
 }) => {
+  const { language, setLanguage, t } = useLanguage();
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-background p-6">
       <div className="w-full max-w-md">
+        <div className="mb-5 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setLanguage(language === "en" ? "rw" : "en")}
+            className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted"
+          >
+            {language === "en" ? "Kinyarwanda" : "English"}
+          </button>
+        </div>
         <div className="flex flex-col items-center text-center mb-8">
           <div className="h-12 w-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center mb-4">
             <Zap size={22} fill="currentColor" />
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">What are you using?</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{t("What are you using?")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            We'll show you the right stations for your vehicle.
+            {t("We'll show you the right stations for your vehicle.")}
           </p>
         </div>
 
@@ -30,8 +41,8 @@ export const VehiclePicker = ({
               <Bike size={28} />
             </div>
             <div>
-              <div className="text-base font-semibold text-foreground">Motorcycle</div>
-              <div className="text-xs text-muted-foreground mt-1">Battery swap stations (Spiro, Ampersand)</div>
+              <div className="text-base font-semibold text-foreground">{t("Motorcycle")}</div>
+              <div className="text-xs text-muted-foreground mt-1">{t("Battery swap stations (Spiro, Ampersand)")}</div>
             </div>
           </button>
 
@@ -44,14 +55,14 @@ export const VehiclePicker = ({
               <Car size={28} />
             </div>
             <div>
-              <div className="text-base font-semibold text-foreground">Car / Bus</div>
-              <div className="text-xs text-muted-foreground mt-1">EV charging stations (Kabisa, public chargers)</div>
+              <div className="text-base font-semibold text-foreground">{t("Car / Bus")}</div>
+              <div className="text-xs text-muted-foreground mt-1">{t("EV charging stations (Kabisa, public chargers)")}</div>
             </div>
           </button>
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          You can switch this anytime from the top bar.
+          {t("You can switch this anytime from the top bar.")}
         </p>
       </div>
     </div>

@@ -2,6 +2,9 @@ import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
 import { TerminalButton } from "./TerminalButton";
 import { Station, classifyStation } from "@/lib/stations";
 import { X, MapPin, Clock, LogOut, Trash2, Gift } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n";
 
 export const SidePanel = ({
   open,
@@ -14,6 +17,7 @@ export const SidePanel = ({
 }) => {
   const [saved, setSaved] = useLocalState<SavedStation[]>("cf_saved_stations", []);
   const [history] = useLocalState<ChargeHistoryEntry[]>("cf_history", []);
+  const { t, language } = useLanguage();
 
   if (!open) return null;
 
@@ -25,7 +29,7 @@ export const SidePanel = ({
         className="w-full max-w-sm h-full bg-card border-l border-border overflow-y-auto shadow-elevated"
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-base font-semibold text-foreground">Your account</h2>
+          <h2 className="text-base font-semibold text-foreground">{t("Your account")}</h2>
           <button
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted"
@@ -44,10 +48,10 @@ export const SidePanel = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-foreground leading-none">120</span>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Volta pts</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("Volta points")}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-                  Earn points by charging at partner stations. Redeem rewards — coming soon.
+                  {t("Earn points by charging at partner stations. Redeem rewards — coming soon.")}
                 </p>
               </div>
             </div>
@@ -55,13 +59,13 @@ export const SidePanel = ({
 
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-foreground">Saved stations</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t("Saved stations")}</h3>
               <span className="text-xs text-muted-foreground">{saved.length}</span>
             </div>
             <ul className="space-y-2">
               {saved.length === 0 && (
                 <li className="text-sm text-muted-foreground py-3 text-center bg-muted/30 rounded-lg">
-                  No saved stations yet
+                  {t("No saved stations yet")}
                 </li>
               )}
               {saved.map((s) => (
@@ -74,6 +78,7 @@ export const SidePanel = ({
                           source: s.custom ? "custom" : "google",
                           status: "online",
                           kind: s.kind ?? classifyStation(s.name),
+                          photoUrls: s.photoUrls,
                         });
                         onClose();
                       }}
@@ -91,7 +96,7 @@ export const SidePanel = ({
                     <button
                       onClick={() => setSaved(saved.filter((x) => x.id !== s.id))}
                       className="text-muted-foreground hover:text-destructive p-1 rounded-md hover:bg-muted shrink-0"
-                      aria-label="Remove"
+                      aria-label={t("Remove")}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -103,13 +108,13 @@ export const SidePanel = ({
 
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-foreground">Charging history</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t("Charging history")}</h3>
               <span className="text-xs text-muted-foreground">{history.length}</span>
             </div>
             <ul className="space-y-2">
               {history.length === 0 && (
                 <li className="text-sm text-muted-foreground py-3 text-center bg-muted/30 rounded-lg">
-                  No charging sessions yet
+                  {t("No charging sessions yet")}
                 </li>
               )}
               {history.map((h) => (
@@ -119,7 +124,7 @@ export const SidePanel = ({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-foreground truncate">{h.stationName}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(h.date).toLocaleString()}
+                        {new Date(h.date).toLocaleString(language === "rw" ? "rw-RW" : "en-US")}
                       </div>
                       <div className="mt-1 flex items-center gap-3 text-xs">
                         <span className="text-primary font-medium">{h.kwh} kWh</span>
@@ -138,12 +143,14 @@ export const SidePanel = ({
               variant="ghost"
               size="lg"
               className="w-full"
-              onClick={() => {
-                localStorage.removeItem("cf_user");
-                location.reload();
+              onClick={async () => {
+                const { error } = await supabase.auth.signOut();
+                if (error) {
+                  toast.error("Couldn't sign out", { description: error.message });
+                }
               }}
             >
-              <LogOut size={16} /> Log out
+              <LogOut size={16} /> {t("Log out")}
             </TerminalButton>
           </section>
         </div>

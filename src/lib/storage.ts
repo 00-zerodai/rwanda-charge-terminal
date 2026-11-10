@@ -9,6 +9,9 @@ export type SavedStation = {
   rating?: number;
   custom?: boolean;
   kind?: "swap-moto" | "ev-car";
+  pricePerKwh?: number;
+  swapPrice?: number;
+  photoUrls?: string[];
 };
 
 export type ChargeHistoryEntry = {
@@ -21,12 +24,10 @@ export type ChargeHistoryEntry = {
   method: "CARD" | "MTN_MOMO" | "AIRTEL_MONEY";
 };
 
-export type MockUser = { username: string };
+export type AppUser = { username: string };
 
 const KEYS = {
-  user: "cf_user",
   saved: "cf_saved_stations",
-  custom: "cf_custom_stations",
   history: "cf_history",
   apiKey: "cf_gmaps_key",
 };
@@ -66,8 +67,6 @@ export function useLocalState<T>(key: string, fallback: T) {
 
 export const storage = {
   KEYS,
-  getUser: () => read<MockUser | null>(KEYS.user, null),
-  setUser: (u: MockUser | null) => write(KEYS.user, u),
   getApiKey: () => read<string>(KEYS.apiKey, ""),
   setApiKey: (k: string) => write(KEYS.apiKey, k),
 };

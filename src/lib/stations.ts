@@ -128,6 +128,12 @@ export function mockPriceFor(
   return { pricePerKwh: base + jitter };
 }
 
+export function publicChargingPriceFor(name: string): number {
+  if (/\bKabisa\b/i.test(name)) return 600;
+  if (/\bEVP\b/i.test(name)) return 500;
+  return 500;
+}
+
 export type Station = SavedStation & {
   source: "google" | "custom";
   status: "online" | "busy" | "offline" | "unknown";
@@ -142,6 +148,8 @@ export type Station = SavedStation & {
   pricePerKwh?: number;
   /** Future: swap session price in RWF for moto swap stations */
   swapPrice?: number;
+  ownerId?: string;
+  photoUrls?: string[];
 };
 
 const KIGALI_DEMO: Station[] = [
@@ -224,7 +232,9 @@ export function googlePlaceToStation(p: google.maps.places.PlaceResult): Station
   const name = p.name ?? "Unknown station";
   const kind = classifyStation(name, p.types);
   const spec = inferChargingSpec(name, kind);
-  const price = mockPriceFor(p.place_id, kind, spec?.speed);
+  const price = kind === "ev-car"
+  ? { pricePerKwh: publicChargingPriceFor(name) }
+  : mockPriceFor(p.place_id, kind, spec?.speed);
   return {
     id: p.place_id,
     name,

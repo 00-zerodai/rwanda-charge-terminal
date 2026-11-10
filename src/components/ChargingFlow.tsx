@@ -3,12 +3,14 @@ import { Station } from "@/lib/stations";
 import { TerminalLine, Typewriter } from "./Terminal";
 import { TerminalButton } from "./TerminalButton";
 import { logChargeSession } from "./StationSheet";
+import { useLanguage } from "@/lib/i18n";
 
 type Step = "connect" | "method" | "card" | "momo" | "processing" | "charging" | "done";
 type ConnectMode = "qr" | "nfc";
 type PayMethod = "CARD" | "MTN_MOMO" | "AIRTEL_MONEY";
 
 export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: () => void }) => {
+  const { t } = useLanguage();
   const [step, setStep] = useState<Step>("connect");
   const [mode, setMode] = useState<ConnectMode | null>(null);
   const [method, setMethod] = useState<PayMethod | null>(null);
@@ -83,14 +85,14 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
     <div className="space-y-3">
       {step === "connect" && !mode && (
         <>
-          <h3 className="text-base font-semibold text-foreground">Connect to charger</h3>
-          <p className="text-sm text-muted-foreground mt-1">Choose how to link with {station.name}.</p>
+          <h3 className="text-base font-semibold text-foreground">{t("Connect to charger")}</h3>
+          <p className="text-sm text-muted-foreground mt-1">{t("Choose how to link with ")}{station.name}.</p>
           <div className="flex flex-wrap gap-2">
             <TerminalButton variant="green" size="lg" onClick={() => setMode("qr")}>
-              Scan QR
+              {t("Scan QR")}
             </TerminalButton>
             <TerminalButton variant="ghost" size="lg" onClick={() => setMode("nfc")}>
-              Tap NFC
+              {t("Tap NFC")}
             </TerminalButton>
           </div>
         </>
@@ -100,7 +102,7 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
         <div className="terminal-box bg-background/60 p-3 min-h-[140px] font-mono text-sm space-y-1">
           {logs.map((l, i) => (
             <TerminalLine key={i} tone={l.includes("✓") ? "green" : i === logs.length - 1 ? "cyan" : "dim"}>
-              <Typewriter text={l} speed={10} cursor={i === logs.length - 1} />
+              <Typewriter text={t(l)} speed={10} cursor={i === logs.length - 1} />
             </TerminalLine>
           ))}
         </div>
@@ -108,16 +110,16 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
 
       {step === "method" && (
         <>
-          <h3 className="text-base font-semibold text-foreground">Choose payment method</h3>
+          <h3 className="text-base font-semibold text-foreground">{t("Choose payment method")}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
             <TerminalButton variant="green" size="lg" onClick={() => { setMethod("CARD"); setStep("card"); }}>
-              Card
+              {t("Card")}
             </TerminalButton>
             <TerminalButton variant="amber" size="lg" onClick={() => { setMethod("MTN_MOMO"); setStep("momo"); }}>
               MTN MoMo
             </TerminalButton>
             <TerminalButton variant="danger" size="lg" onClick={() => { setMethod("AIRTEL_MONEY"); setStep("momo"); }}>
-              Airtel Money
+              {t("Airtel Money")}
             </TerminalButton>
           </div>
         </>
@@ -132,31 +134,35 @@ export const ChargingFlow = ({ station, onDone }: { station: Station; onDone: ()
 
       {step === "done" && (
         <div className="space-y-3">
-          <h3 className="text-base font-semibold text-[hsl(var(--success))]">Charging complete</h3>
+          <h3 className="text-base font-semibold text-[hsl(var(--success))]">{t("Charging complete")}</h3>
           <div className="bg-muted/30 border border-border rounded-xl p-4 text-sm space-y-2">
-            <div className="flex justify-between"><span className="text-muted-foreground">Station</span><span className="font-medium">{station.name}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Delivered</span><span className="text-primary font-medium">12.4 kWh</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="font-medium">{amount.toLocaleString()} RWF</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Method</span><span>{method}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t("Station")}</span><span className="font-medium">{station.name}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t("Delivered")}</span><span className="text-primary font-medium">12.4 kWh</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t("Paid")}</span><span className="font-medium">{amount.toLocaleString()} RWF</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t("Method")}</span><span>{method}</span></div>
           </div>
-          <TerminalButton variant="green" size="lg" onClick={onDone} className="w-full">Done</TerminalButton>
+          <TerminalButton variant="green" size="lg" onClick={onDone} className="w-full">{t("Done")}</TerminalButton>
         </div>
       )}
     </div>
   );
 };
 
-const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <label className="block">
-    <span className="block text-xs font-medium text-muted-foreground mb-1.5">{label}</span>
-    {children}
-  </label>
-);
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => {
+  const { t } = useLanguage();
+  return (
+    <label className="block">
+      <span className="block text-xs font-medium text-muted-foreground mb-1.5">{t(label)}</span>
+      {children}
+    </label>
+  );
+};
 
 const inputCls =
   "w-full bg-input border border-border px-3 py-2.5 text-sm text-foreground rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition";
 
 const CardForm = ({ onPay, amount }: { onPay: () => void; amount: number }) => {
+  const { t } = useLanguage();
   const [num, setNum] = useState("4242 4242 4242 4242");
   const [exp, setExp] = useState("12/29");
   const [cvc, setCvc] = useState("123");
@@ -165,7 +171,7 @@ const CardForm = ({ onPay, amount }: { onPay: () => void; amount: number }) => {
       onSubmit={(e) => { e.preventDefault(); onPay(); }}
       className="space-y-3"
     >
-      <h3 className="text-base font-semibold text-foreground">Card details</h3>
+      <h3 className="text-base font-semibold text-foreground">{t("Card details")}</h3>
       <Field label="Card number">
         <input className={inputCls} value={num} onChange={(e) => setNum(e.target.value)} maxLength={19} />
       </Field>
@@ -179,27 +185,31 @@ const CardForm = ({ onPay, amount }: { onPay: () => void; amount: number }) => {
 };
 
 const MomoForm = ({ provider, onPay, amount }: { provider: PayMethod; onPay: () => void; amount: number }) => {
+  const { t } = useLanguage();
   const [phone, setPhone] = useState("+2507");
   return (
     <form onSubmit={(e) => { e.preventDefault(); onPay(); }} className="space-y-3">
       <h3 className="text-base font-semibold text-foreground">
-        {provider === "MTN_MOMO" ? "MTN Mobile Money" : "Airtel Money"}
+        {t(provider === "MTN_MOMO" ? "MTN Mobile Money" : "Airtel Money")}
       </h3>
       <Field label="Phone number">
         <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={15} />
       </Field>
-      <p className="text-xs text-muted-foreground">A USSD prompt will be simulated on the demo handset.</p>
+      <p className="text-xs text-muted-foreground">{t("A USSD prompt will be simulated on the demo handset.")}</p>
       <PayBar amount={amount} />
     </form>
   );
 };
 
-const PayBar = ({ amount }: { amount: number }) => (
-  <div className="flex items-center justify-between border-t border-border pt-4">
-    <div className="text-sm">
-      <span className="text-muted-foreground">Total · </span>
-      <span className="text-foreground font-semibold">{amount.toLocaleString()} RWF</span>
+const PayBar = ({ amount }: { amount: number }) => {
+  const { t } = useLanguage();
+  return (
+    <div className="flex items-center justify-between border-t border-border pt-4">
+      <div className="text-sm">
+        <span className="text-muted-foreground">{t("Total · ")}</span>
+        <span className="text-foreground font-semibold">{amount.toLocaleString()} RWF</span>
+      </div>
+      <TerminalButton variant="green" size="lg" type="submit">{t("Pay now")}</TerminalButton>
     </div>
-    <TerminalButton variant="green" size="lg" type="submit">Pay now</TerminalButton>
-  </div>
-);
+  );
+};

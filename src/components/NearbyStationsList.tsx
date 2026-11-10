@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Station, distanceMeters, formatDistance, formatRwf, SPEED_LABEL } from "@/lib/stations";
 import { Bike, Car, Zap, Sparkles } from "lucide-react";
 import { KIGALI_CENTER } from "@/lib/google-maps";
+import { useLanguage } from "@/lib/i18n";
 
 export const NearbyStationsList = ({
   stations,
@@ -16,6 +17,7 @@ export const NearbyStationsList = ({
   nearestId: string | null;
   priceLowFirst?: boolean;
 }) => {
+  const { t } = useLanguage();
   const origin = userLoc ?? KIGALI_CENTER;
 
   const sorted = useMemo(() => {
@@ -35,15 +37,15 @@ export const NearbyStationsList = ({
   return (
     <div className="bg-card border-t border-border">
       <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Nearby stations</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t("Nearby stations")}</h2>
         <span className="text-[11px] text-muted-foreground">
-          {sorted.length} {sorted.length === 1 ? "result" : "results"} · sorted by distance
+          {sorted.length} {t(sorted.length === 1 ? "result" : "results")} · {t("sorted by distance")}
         </span>
       </div>
       <ul className="divide-y divide-border max-h-full">
         {sorted.length === 0 && (
           <li className="px-4 py-6 text-center text-sm text-muted-foreground">
-            No stations in view — pan or zoom the map.
+            {t("No stations in view — pan or zoom the map.")}
           </li>
         )}
         {sorted.map(({ s, d }) => {
@@ -73,7 +75,7 @@ export const NearbyStationsList = ({
                     </div>
                     {isNearest && (
                       <span className="inline-flex items-center gap-0.5 rounded-full bg-[hsl(var(--success))]/15 text-[hsl(var(--success))] text-[10px] font-semibold px-1.5 py-0.5 uppercase tracking-wide shrink-0">
-                        <Sparkles size={9} /> Nearest
+                        <Sparkles size={9} /> {t("Nearest")}
                       </span>
                     )}
                   </div>
@@ -82,13 +84,13 @@ export const NearbyStationsList = ({
                       {formatDistance(d)}
                     </span>
                     <span>·</span>
-                    <span>{isSwap ? "Battery swap" : "EV charger"}</span>
+                    <span>{t(isSwap ? "Battery swap" : "EV charger")}</span>
                     {s.speed && (
                       <>
                         <span>·</span>
                         <span className="inline-flex items-center gap-0.5">
                           <Zap size={10} />
-                          {SPEED_LABEL[s.speed]}
+                          {t(SPEED_LABEL[s.speed])}
                           {s.kw ? ` ${s.kw}kW` : ""}
                         </span>
                       </>
@@ -99,7 +101,7 @@ export const NearbyStationsList = ({
                       ? `${formatRwf(s.pricePerKwh)}/kWh`
                       : s.swapPrice
                       ? `${formatRwf(s.swapPrice)}/swap`
-                      : "Pricing — coming soon"}
+                      : t("Pricing — coming soon")}
                   </div>
                 </div>
               </button>

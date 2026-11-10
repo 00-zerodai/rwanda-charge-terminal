@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, X, Loader2, MapPin } from "lucide-react";
 import { loadGoogleMaps, KIGALI_CENTER, GOOGLE_MAPS_API_KEY } from "@/lib/google-maps";
+import { useLanguage } from "@/lib/i18n";
 
 type Suggestion = {
   placeId: string;
@@ -14,6 +15,7 @@ export const SearchBar = ({
 }: {
   onPick: (loc: { lat: number; lng: number; name: string }) => void;
 }) => {
+  const { t } = useLanguage();
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -138,14 +140,14 @@ export const SearchBar = ({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onFocus={() => suggestions.length && setOpen(true)}
-          placeholder="Search places, landmarks, or addresses…"
+          placeholder={t("Search places, landmarks, or addresses…")}
           className="w-full h-11 pl-10 pr-10 rounded-xl bg-card/95 backdrop-blur border border-border text-sm text-foreground placeholder:text-muted-foreground shadow-soft focus:outline-none focus:ring-2 focus:ring-primary/40"
-          aria-label="Search for a place"
+          aria-label={t("Search for a place")}
         />
         {value && (
           <button
             onClick={clear}
-            aria-label="Clear search"
+            aria-label={t("Clear search")}
             className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
           >
             <X size={14} />

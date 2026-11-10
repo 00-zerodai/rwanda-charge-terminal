@@ -1,13 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Station } from "@/lib/stations";
 import { StatusBadge } from "./Terminal";
-import { TerminalButton } from "./TerminalButton";
 import { useLocalState, SavedStation, ChargeHistoryEntry } from "@/lib/storage";
-import { ChargingFlow } from "./ChargingFlow";
 import { toast } from "sonner";
 import { buildMapsUrl, isIOS, isAndroid, openMapsOnIOS } from "@/lib/platform";
-import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route, Car, Bike, Plug, Gauge, BatteryCharging, Gift, Smartphone, CreditCard, Tag } from "lucide-react";
+import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route, Car, Bike, Plug, Gauge, BatteryCharging, Gift, Smartphone, CreditCard, Tag, X } from "lucide-react";
 import { SPEED_LABEL, SPEED_KW } from "@/lib/stations";
+import { useLanguage } from "@/lib/i18n";
 
 export const StationSheet = ({
   station,
@@ -18,8 +17,8 @@ export const StationSheet = ({
   routeInfo?: { distanceText: string; durationText: string } | null;
   onClose: () => void;
 }) => {
+  const { t } = useLanguage();
   const [saved, setSaved] = useLocalState<SavedStation[]>("cf_saved_stations", []);
-  const [flow, setFlow] = useState(false);
 
   const navUrl = useMemo(
     () =>
@@ -91,9 +90,9 @@ export const StationSheet = ({
             <Map size={20} />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-foreground">Select a station</h2>
+            <h2 className="text-base font-semibold text-foreground">{t("Select a station")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Tap a charging marker to view details and open directions outside the map.
+              {t("Tap a charging marker to view details and open directions outside the map.")}
             </p>
           </div>
         </div>
@@ -118,6 +117,9 @@ export const StationSheet = ({
           rating: station.rating,
           custom: station.source === "custom",
           kind: station.kind,
+          pricePerKwh: station.pricePerKwh,
+          swapPrice: station.swapPrice,
+          photoUrls: station.photoUrls,
         },
       ]);
   };
@@ -125,20 +127,16 @@ export const StationSheet = ({
   return (
     <aside className="border-t border-border bg-card/95 backdrop-blur-md lg:w-[360px] lg:max-w-[360px] lg:border-l lg:border-t-0">
       <div className="h-full max-h-[42vh] overflow-auto lg:max-h-none">
-        {flow ? (
-          <div className="p-5 relative">
-            <button
-              className="absolute right-3 top-3 z-10 text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
-              onClick={() => setFlow(false)}
-              aria-label="Back to station details"
-            >
-              <ExternalLink size={18} />
-            </button>
-            <ChargingFlow station={station} onDone={() => setFlow(false)} />
-          </div>
-        ) : (
-          <>
+        <>
             <div className="relative p-5 pb-4 border-b border-border">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t("Close station details")}
+                className="absolute right-3 top-3 z-10 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X size={17} />
+              </button>
               <div className="flex items-start gap-3 pr-2">
                 <div
                   className={
@@ -168,7 +166,7 @@ export const StationSheet = ({
                           : "bg-primary/15 text-primary")
                       }
                     >
-                      {isSwap ? "Battery swap" : "EV charger"}
+                      {t(isSwap ? "Battery swap" : "EV charger")}
                     </span>
                     <StatusBadge status={station.status} />
                     {station.rating ? (
@@ -178,7 +176,7 @@ export const StationSheet = ({
                       </span>
                     ) : null}
                     <span className="text-xs text-muted-foreground">
-                      {station.source === "google" ? "Google Places" : "Community"}
+                      {t(station.source === "google" ? "Google Places" : "Community")}
                     </span>
                   </div>
                 </div>
@@ -186,11 +184,29 @@ export const StationSheet = ({
             </div>
 
             <div className="p-5 space-y-4">
+              {station.photoUrls && station.photoUrls.length > 0 && (
+                <section aria-label="Station photos" className="space-y-2">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("Station photos")}
+                  </h3>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {station.photoUrls.map((photoUrl, index) => (
+                      <img
+                        key={photoUrl}
+                        src={photoUrl}
+                        alt={`${station.name} photo ${index + 1}`}
+                        loading="lazy"
+                        className="h-28 w-40 shrink-0 rounded-lg border border-border object-cover"
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
               {station.nearLandmark && (
                 <div className="flex items-start gap-3">
                   <MapPin size={16} className="text-primary mt-0.5 shrink-0" />
                   <div className="text-sm text-foreground">
-                    Near <span className="font-medium">{station.nearLandmark}</span>
+                    {t("Near ")}<span className="font-medium">{station.nearLandmark}</span>
                   </div>
                 </div>
               )}
@@ -216,23 +232,23 @@ export const StationSheet = ({
                   <span className="font-medium text-foreground">{routeInfo.durationText}</span>
                   <span className="text-muted-foreground">·</span>
                   <span className="text-muted-foreground">{routeInfo.distanceText}</span>
-                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Driving</span>
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">{t("Driving")}</span>
                 </div>
               )}
 
               {/* Technical specs */}
               <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2.5">
                 <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {isSwap ? "Service" : "Charging specs"}
+                  {t(isSwap ? "Service" : "Charging specs")}
                 </h3>
 
                 {isSwap ? (
                   <div className="flex items-start gap-2.5">
                     <BatteryCharging size={16} className="text-[hsl(24_95%_53%)] mt-0.5 shrink-0" />
                     <div>
-                      <div className="text-sm font-medium text-foreground">Battery Swap Station</div>
+                      <div className="text-sm font-medium text-foreground">{t("Battery Swap Station")}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        Swap a depleted battery for a fully charged one. No connector required.
+                        {t("Swap a depleted battery for a fully charged one. No connector required.")}
                       </div>
                     </div>
                   </div>
@@ -241,7 +257,7 @@ export const StationSheet = ({
                     <div className="flex items-start gap-2.5">
                       <Plug size={14} className="text-primary mt-0.5 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[11px] text-muted-foreground">Connectors</div>
+                        <div className="text-[11px] text-muted-foreground">{t("Connectors")}</div>
                         {station.connectors && station.connectors.length > 0 ? (
                           <div className="mt-1 flex flex-wrap gap-1.5">
                             {station.connectors.map((c) => (
@@ -254,23 +270,23 @@ export const StationSheet = ({
                             ))}
                           </div>
                         ) : (
-                          <div className="text-xs text-muted-foreground mt-0.5">Not available</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{t("Not available")}</div>
                         )}
                       </div>
                     </div>
                     <div className="flex items-start gap-2.5">
                       <Gauge size={14} className="text-primary mt-0.5 shrink-0" />
                       <div>
-                        <div className="text-[11px] text-muted-foreground">Charging speed</div>
+                        <div className="text-[11px] text-muted-foreground">{t("Charging speed")}</div>
                         {station.speed ? (
                           <div className="text-sm font-medium text-foreground mt-0.5">
-                            {SPEED_LABEL[station.speed]}
+                            {t(SPEED_LABEL[station.speed])}
                             <span className="ml-2 text-xs text-muted-foreground font-normal">
                               {station.kw ? `${station.kw} kW` : SPEED_KW[station.speed]}
                             </span>
                           </div>
                         ) : (
-                          <div className="text-xs text-muted-foreground mt-0.5">Not available</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{t("Not available")}</div>
                         )}
                       </div>
                     </div>
@@ -283,16 +299,16 @@ export const StationSheet = ({
                 <Tag size={14} className="text-primary mt-0.5 shrink-0" />
                 <div className="flex-1">
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {isSwap ? "Swap price" : "Price per kWh"}
+                    {t(isSwap ? "Swap price" : "Price per kWh")}
                   </div>
                   <div className="text-sm font-medium text-foreground mt-0.5">
                     {isSwap
                       ? station.swapPrice
                         ? `${station.swapPrice} RWF / swap`
-                        : "— RWF · Coming soon"
+                        : `— ${t("RWF · Coming soon")}`
                       : station.pricePerKwh
                       ? `${station.pricePerKwh} RWF / kWh`
-                      : "— RWF · Coming soon"}
+                      : `— ${t("RWF · Coming soon")}`}
                   </div>
                 </div>
               </div>
@@ -301,8 +317,8 @@ export const StationSheet = ({
               <div className="flex items-start gap-2.5 rounded-xl border border-border bg-[hsl(var(--success))]/5 p-3">
                 <Gift size={14} className="text-[hsl(var(--success))] mt-0.5 shrink-0" />
                 <div className="text-xs text-foreground/90">
-                  Earn <span className="font-semibold text-[hsl(var(--success))]">Volta points</span> when charging at partner stations.
-                  <span className="block text-[11px] text-muted-foreground mt-0.5">Rewards launching soon.</span>
+                  {t("Earn ")}<span className="font-semibold text-[hsl(var(--success))]">{t("Volta points")}</span>{t(" when charging at partner stations.")}
+                  <span className="block text-[11px] text-muted-foreground mt-0.5">{t("Rewards launching soon.")}</span>
                 </div>
               </div>
 
@@ -310,10 +326,10 @@ export const StationSheet = ({
               <div className="rounded-xl border border-border bg-muted/20 p-3">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Pay
+                    {t("Pay")}
                   </h3>
                   <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    Coming soon
+                    {t("Coming soon")}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -330,16 +346,12 @@ export const StationSheet = ({
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-2">
-                <TerminalButton variant="green" size="lg" onClick={() => setFlow(true)} className="col-span-2">
-                  <Zap size={16} /> Start charging
-                </TerminalButton>
-
                 <button
                   type="button"
                   onClick={openNavigation}
-                  className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
+                  className="col-span-2 inline-flex items-center justify-center gap-2 h-11 px-5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
                 >
-                  <Navigation size={16} /> Navigate
+                  <Navigation size={16} /> {t("Navigate")}
                 </button>
 
                 <button
@@ -347,7 +359,7 @@ export const StationSheet = ({
                   className="inline-flex items-center justify-center gap-1.5 h-11 px-5 text-sm font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition border border-border"
                 >
                   {isSaved ? <BookmarkCheck size={16} className="text-primary" /> : <Bookmark size={16} />}
-                  {isSaved ? "Saved" : "Save"}
+                  {isSaved ? t("Saved") : t("Save")}
                 </button>
 
                 <button
@@ -355,11 +367,11 @@ export const StationSheet = ({
                   onClick={openNavigation}
                   className="col-span-2 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition pt-1"
                 >
-                  <ExternalLink size={12} /> Open in Google Maps
+                  <ExternalLink size={12} /> {t("Open in Google Maps")}
                 </button>
 
                 <p className="col-span-2 text-[11px] text-muted-foreground/80 text-center leading-snug">
-                  Opens the Google Maps app on your phone — falls back to Apple Maps on iPhone, or the Maps website.
+                  {t("Opens the Google Maps app on your phone — falls back to Apple Maps on iPhone, or the Maps website.")}
                 </p>
 
                 <button
@@ -367,12 +379,11 @@ export const StationSheet = ({
                   onClick={onClose}
                   className="col-span-2 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
                 >
-                  Clear selection
+                  {t("Clear selection")}
                 </button>
               </div>
             </div>
-          </>
-        )}
+        </>
       </div>
     </aside>
   );

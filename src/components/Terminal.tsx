@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
 
 export const TerminalWindow = ({
   title,
@@ -73,6 +74,7 @@ export const StatusBadge = ({
   status: "online" | "offline" | "busy" | "unknown";
   label?: string;
 }) => {
+  const { t } = useLanguage();
   const map = {
     online: { color: "text-[hsl(var(--success))] bg-[hsl(var(--success))]/10 border-[hsl(var(--success))]/30", dot: "bg-[hsl(var(--success))]", text: "Online" },
     offline: { color: "text-destructive bg-destructive/10 border-destructive/30", dot: "bg-destructive", text: "Offline" },
@@ -82,7 +84,7 @@ export const StatusBadge = ({
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border", map.color)}>
       <span className={cn("h-1.5 w-1.5 rounded-full", map.dot)} />
-      {label ?? map.text}
+      {label ?? t(map.text)}
     </span>
   );
 };

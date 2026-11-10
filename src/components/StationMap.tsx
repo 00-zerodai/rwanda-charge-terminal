@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation, classifyStation, StationKind, ConnectorType, SpeedTier } from "@/lib/stations";
 import { distanceMeters, formatDistance, formatRwf, SPEED_LABEL } from "@/lib/stations";
-import { useLocalState, SavedStation } from "@/lib/storage";
 import type { MarkerClusterer as MarkerClustererType, Renderer } from "@googlemaps/markerclusterer";
 import { fetchRoute } from "@/lib/directions";
+import { useLanguage } from "@/lib/i18n";
 
 /* ---------- Pin SVGs: car+bolt (EV charger) and moto+bolt (battery swap) ---------- */
 const CAR_PIN_SVG = (fill: string) =>
@@ -20,8 +20,12 @@ const CAR_PIN_SVG = (fill: string) =>
             fill='${fill}' stroke='#ffffff' stroke-width='2'/>
       <circle cx='22' cy='20' r='11' fill='#ffffff'/>
       <!-- car silhouette -->
-      <path d='M14.5 21.5 L15.5 18 Q15.8 17 16.8 17 H27.2 Q28.2 17 28.5 18 L29.5 21.5 H14.5 Z M14 22 H30 V24 Q30 24.6 29.4 24.6 H28.6 V25.3 Q28.6 25.8 28.1 25.8 H27.1 Q26.6 25.8 26.6 25.3 V24.6 H17.4 V25.3 Q17.4 25.8 16.9 25.8 H15.9 Q15.4 25.8 15.4 25.3 V24.6 H14.6 Q14 24.6 14 24 Z'
-            fill='${fill}'/>
+      <path d='M13 21.5 L15.4 18.2 Q16 17.4 17 17.4 H27 Q28 17.4 28.6 18.2 L31 21.5 L32 22.2 V26.2 Q32 27 31.2 27 H29.8 V28.2 Q29.8 29 29 29 H27.7 Q27 29 27 28.2 V27 H17 V28.2 Q17 29 16.2 29 H15 Q14.2 29 14.2 28.2 V27 H12.8 Q12 27 12 26.2 V22.2 Z'
+            fill='${fill}' stroke='${fill}' stroke-width='0.5' stroke-linejoin='round'/>
+      <path d='M16 20.8 L17.3 18.9 Q17.5 18.6 18 18.6 H26 Q26.5 18.6 26.7 18.9 L28 20.8 Z'
+            fill='#ffffff'/>
+      <circle cx='16.5' cy='25' r='1.25' fill='#ffffff'/>
+      <circle cx='27.5' cy='25' r='1.25' fill='#ffffff'/>
       <!-- lightning bolt overlay -->
       <path d='M24.6 13 L20.6 19.2 H22.8 L22 23 L26 16.6 H23.8 L24.6 13 Z'
             fill='#fbbf24' stroke='${fill}' stroke-width='0.4' stroke-linejoin='round'/>
@@ -93,7 +97,7 @@ const clusterRenderer: Renderer = {
 };
 
 /* ---------- Cache (5 min TTL, persisted) ---------- */
-const CACHE_KEY = "cf_places_cache_v1";
+const CACHE_KEY = "cf_places_cache_v2";
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 type CacheEntry = { ts: number; stations: Station[] };
@@ -209,6 +213,7 @@ export const StationMap = ({
   refreshKey = 0,
   flyTo,
   vehicleType,
+  communityStations,
   connectorFilter = [],
   speedFilter = [],
   nearestStationId = null,
@@ -222,12 +227,14 @@ export const StationMap = ({
   refreshKey?: number;
   flyTo?: { lat: number; lng: number; zoom?: number; key?: number } | null;
   vehicleType: "moto" | "car";
+  communityStations: Station[];
   connectorFilter?: ConnectorType[];
   speedFilter?: SpeedTier[];
   nearestStationId?: string | null;
   onUserLocation?: (loc: { lat: number; lng: number } | null) => void;
   onStationsChange?: (stations: Station[]) => void;
 }) => {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const placesRef = useRef<google.maps.places.PlacesService | null>(null);
@@ -268,8 +275,6 @@ export const StationMap = ({
     }
     setLegendOpen(false);
   };
-
-  const [customStations] = useLocalState<SavedStation[]>("cf_custom_stations", []);
 
   // Track all known stations for parent (nearest calc, sidepanel sort)
   const stationsRef = useRef<Map<string, Station>>(new Map());
@@ -520,7 +525,11 @@ export const StationMap = ({
           zoomControl: true,
           zoomControlOptions: { position: g.maps.ControlPosition.RIGHT_CENTER },
           gestureHandling: "greedy",
-          clickableIcons: true,
+          clickableIcons: false,
+          styles: [
+            { featureType: "poi", stylers: [{ visibility: "off" }] },
+            { featureType: "transit", stylers: [{ visibility: "off" }] },
+          ],
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
@@ -775,12 +784,15 @@ export const StationMap = ({
     customMarkersRef.current.forEach((m) => m.setMap(null));
     customMarkersRef.current = [];
 
-    customStations.forEach((s) => {
+    stationsRef.current.forEach((station, id) => {
+      if (station.source === "custom") stationsRef.current.delete(id);
+    });
+    communityStations.forEach((s) => {
       const kind: StationKind = s.kind ?? classifyStation(s.name);
-      const station: Station = { ...s, source: "custom", status: "online", kind };
-      stationsRef.current.set(s.id, station);
+      const customStation: Station = { ...s, source: "custom", status: "online", kind };
+      stationsRef.current.set(s.id, customStation);
       // Hide if doesn't match filters
-      const visible = stationMatchesFilters(station);
+      const visible = stationMatchesFilters(customStation);
       const marker = new g.maps.Marker({
         position: { lat: s.lat, lng: s.lng },
         map: visible ? map : null,
@@ -795,13 +807,13 @@ export const StationMap = ({
       (marker as any).__stationId = s.id;
       marker.addListener("click", () => {
         map.panTo({ lat: s.lat, lng: s.lng });
-        openCallout(station, marker);
+        openCallout(customStation, marker);
       });
       customMarkersRef.current.push(marker);
     });
     notifyStations();
     applyNearestHighlight();
-  }, [customStations, status, onSelect, wantedKind]);
+  }, [communityStations, status, onSelect, wantedKind]);
 
   /* When vehicle filter changes, clear existing google markers and refetch */
   useEffect(() => {
@@ -877,13 +889,13 @@ export const StationMap = ({
           }
         />
         <span className="text-foreground/90 font-medium">
-          {status === "scanning" && "Searching nearby…"}
-          {status === "ready" && <>{count} stations</>}
-          {status === "cached" && <>{count} stations</>}
-          {status === "loading" && "Loading map…"}
-          {status === "init" && "Starting…"}
-          {status === "empty" && "No stations here — try zooming out"}
-          {status === "error" && "Map failed to load"}
+          {status === "scanning" && t("Searching nearby…")}
+          {status === "ready" && <>{count} {t("stations")}</>}
+          {status === "cached" && <>{count} {t("stations")}</>}
+          {status === "loading" && t("Loading map…")}
+          {status === "init" && t("Starting…")}
+          {status === "empty" && t("No stations here — try zooming out")}
+          {status === "error" && t("Map failed to load")}
         </span>
       </div>
 
@@ -893,17 +905,17 @@ export const StationMap = ({
           {wantedKind === "ev-car" ? (
             <div className="flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-full bg-[#2563eb] ring-2 ring-white" />
-              <span className="text-foreground/90 font-medium">Showing EV chargers (cars)</span>
+              <span className="text-foreground/90 font-medium">{t("Showing EV chargers (cars)")}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-full bg-[#ea580c] ring-2 ring-white" />
-              <span className="text-foreground/90 font-medium">Showing battery swap (motorcycles)</span>
+              <span className="text-foreground/90 font-medium">{t("Showing battery swap (motorcycles)")}</span>
             </div>
           )}
           <button
             onClick={dismissLegend}
-            aria-label="Dismiss legend"
+            aria-label={t("Dismiss legend")}
             className="ml-1 text-muted-foreground hover:text-foreground transition text-base leading-none"
           >
             ×
@@ -933,25 +945,23 @@ export const StationMap = ({
           }}
           className="rounded-full bg-primary text-primary-foreground border border-primary px-4 py-2 text-xs font-medium hover:bg-primary/90 transition shadow-soft"
         >
-          ◉ My location
+          ◉ {t("My location")}
         </button>
         <button
           onClick={() => mapRef.current?.panTo(KIGALI_CENTER)}
           className="rounded-full bg-card/95 backdrop-blur border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-card transition shadow-soft"
         >
-          ◎ Kigali
+          ◎ {t("Kigali")}
         </button>
       </div>
 
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/95 p-4 z-20">
           <div className="bg-card border border-border rounded-2xl p-5 max-w-sm shadow-elevated">
-            <h3 className="text-base font-semibold text-foreground">Map failed to load</h3>
+            <h3 className="text-base font-semibold text-foreground">{t("Map failed to load")}</h3>
             <p className="mt-2 text-sm text-muted-foreground">{error}</p>
             <p className="mt-3 text-xs text-muted-foreground">
-              Verify the API key in <code className="text-primary">src/lib/google-maps.ts</code> and that
-              <span className="text-foreground"> Maps JavaScript API</span> and{" "}
-              <span className="text-foreground">Places API</span> are enabled in Google Cloud Console.
+              {t("Verify the API key in Google Maps settings and enable Maps JavaScript API and Places API.")}
             </p>
           </div>
         </div>
