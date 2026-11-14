@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      community_stations: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          kind: string
+          lat: number
+          lng: number
+          name: string
+          owner_id: string
+          photo_paths: string[]
+          price_per_kwh: number | null
+          swap_price: number | null
+        }
+        Insert: {
+          address?: string
+          created_at?: string
+          id?: string
+          kind: string
+          lat: number
+          lng: number
+          name: string
+          owner_id: string
+          photo_paths?: string[]
+          price_per_kwh?: number | null
+          swap_price?: number | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          lat?: number
+          lng?: number
+          name?: string
+          owner_id?: string
+          photo_paths?: string[]
+          price_per_kwh?: number | null
+          swap_price?: number | null
+        }
+        Relationships: []
+      }
       volta_visitors: {
         Row: {
           created_at: string
