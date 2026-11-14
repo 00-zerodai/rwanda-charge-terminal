@@ -8,6 +8,13 @@
       "when": 1794673891976,
       "tag": "0000_community_stations_with_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794674081002,
+      "tag": "0001_lock_down_visitor_records",
+      "breakpoints": true
     }
   ]
 }

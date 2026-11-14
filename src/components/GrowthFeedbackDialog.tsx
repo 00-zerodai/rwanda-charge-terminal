@@ -44,9 +44,7 @@ export function GrowthFeedbackDialog({ open, onOpenChange }: Props) {
         .insert({ session_id: sessionId })
         .then(() => undefined, () => undefined);
 
-      const { count: total } = await supabase
-        .from("volta_visitors")
-        .select("*", { count: "exact", head: true });
+      const { data: total } = await supabase.rpc("get_visitor_count");
 
       if (!cancelled && typeof total === "number") setCount(total);
     })();
