@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
+import { Analytics } from "@vercel/analytics/react";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => (
           <AuthenticatedRoutes />
         </BrowserRouter>
       </LanguageProvider>
+      <Analytics />
     </TooltipProvider>
   </QueryClientProvider>
 );
