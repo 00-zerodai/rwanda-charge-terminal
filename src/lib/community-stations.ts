@@ -12,6 +12,8 @@ type CommunityStationRow = {
   kind: string;
   price_per_kwh: number | null;
   swap_price: number | null;
+  total_slots: number;
+  available_slots: number;
   owner_id: string;
   photo_paths: string[];
 }
@@ -37,6 +39,8 @@ function toStation(row: CommunityStationRow): Station {
     kw: spec?.kw,
     pricePerKwh: row.price_per_kwh ?? undefined,
     swapPrice: row.swap_price ?? undefined,
+    totalSlots: row.total_slots,
+    availableSlots: row.available_slots,
     ownerId: row.owner_id,
     photoUrls,
   };

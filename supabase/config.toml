@@ -1,1 +1,4 @@
 project_id = "tfbxpewxgjxfxqvwooqw"
+
+[functions.notify-station-direction]
+verify_jwt = true

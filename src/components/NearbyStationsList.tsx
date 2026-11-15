@@ -103,6 +103,12 @@ export const NearbyStationsList = ({
                       ? `${formatRwf(s.swapPrice)}/swap`
                       : t("Pricing — coming soon")}
                   </div>
+                  {s.totalSlots !== undefined && s.availableSlots !== undefined && (
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {s.availableSlots}/{s.totalSlots}{" "}
+                      {t(isSwap ? "Available service slots" : "Available charging slots")}
+                    </div>
+                  )}
                 </div>
               </button>
             </li>

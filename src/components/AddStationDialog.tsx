@@ -29,6 +29,8 @@ export const AddStationDialog = ({
   const [lng, setLng] = useState("");
   const [kind, setKind] = useState<"ev-car" | "swap-moto">("ev-car");
   const [price, setPrice] = useState("");
+  const [totalSlots, setTotalSlots] = useState("1");
+  const [availableSlots, setAvailableSlots] = useState("1");
   const [photos, setPhotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -84,6 +86,17 @@ export const AddStationDialog = ({
     if (!Number.isInteger(parsedPrice) || parsedPrice <= 0) {
       return setErr(t("Enter a price greater than zero in RWF"));
     }
+    const parsedTotalSlots = Number(totalSlots);
+    const parsedAvailableSlots = Number(availableSlots);
+    if (
+      !Number.isInteger(parsedTotalSlots) ||
+      parsedTotalSlots < 1 ||
+      !Number.isInteger(parsedAvailableSlots) ||
+      parsedAvailableSlots < 0 ||
+      parsedAvailableSlots > parsedTotalSlots
+    ) {
+      return setErr(t("Enter valid total and available slots."));
+    }
 
     setSaving(true);
     setErr(null);
@@ -111,6 +124,8 @@ export const AddStationDialog = ({
         kind,
         price_per_kwh: kind === "ev-car" ? parsedPrice : null,
         swap_price: kind === "swap-moto" ? parsedPrice : null,
+        total_slots: parsedTotalSlots,
+        available_slots: parsedAvailableSlots,
         photo_paths: uploadedPaths,
       });
       if (error) throw error;
@@ -280,6 +295,42 @@ export const AddStationDialog = ({
               placeholder={kind === "ev-car" ? "e.g. 350" : "e.g. 1800"}
             />
           </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-xs font-medium text-muted-foreground mb-1.5">
+                {t(kind === "ev-car" ? "Total charging slots" : "Total service slots")}
+              </span>
+              <input
+                className={inputCls}
+                type="number"
+                min="1"
+                step="1"
+                required
+                value={totalSlots}
+                onChange={(event) => {
+                  setTotalSlots(event.target.value);
+                  if (Number(availableSlots) > Number(event.target.value)) {
+                    setAvailableSlots(event.target.value);
+                  }
+                }}
+              />
+            </label>
+            <label className="block">
+              <span className="block text-xs font-medium text-muted-foreground mb-1.5">
+                {t(kind === "ev-car" ? "Available now" : "Available services now")}
+              </span>
+              <input
+                className={inputCls}
+                type="number"
+                min="0"
+                max={totalSlots}
+                step="1"
+                required
+                value={availableSlots}
+                onChange={(event) => setAvailableSlots(event.target.value)}
+              />
+            </label>
+          </div>
           <label className="block">
             <span className="block text-xs font-medium text-muted-foreground mb-1.5">{t("Address")}</span>
             <input

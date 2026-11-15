@@ -12,6 +12,8 @@ export type SavedStation = {
   pricePerKwh?: number;
   swapPrice?: number;
   photoUrls?: string[];
+  totalSlots?: number;
+  availableSlots?: number;
 };
 
 export type ChargeHistoryEntry = {

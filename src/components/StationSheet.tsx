@@ -7,6 +7,7 @@ import { buildMapsUrl, isIOS, isAndroid, openMapsOnIOS } from "@/lib/platform";
 import { Star, MapPin, Navigation, Zap, Bookmark, BookmarkCheck, ExternalLink, Map, Route, Car, Bike, Plug, Gauge, BatteryCharging, Gift, Smartphone, CreditCard, Tag, X } from "lucide-react";
 import { SPEED_LABEL, SPEED_KW } from "@/lib/stations";
 import { useLanguage } from "@/lib/i18n";
+import { supabase } from "@/integrations/supabase/client";
 
 export const StationSheet = ({
   station,
@@ -28,8 +29,27 @@ export const StationSheet = ({
     [station],
   );
 
-  const openNavigation = () => {
+  const openNavigation = async () => {
     if (!station || !navUrl) return;
+    const navigationWindow = !isIOS && !isAndroid ? window.open("about:blank", "_blank") : null;
+
+    if (station.ownerId) {
+      try {
+        const { error } = await supabase.functions.invoke("notify-station-direction", {
+          body: { stationId: station.id },
+        });
+        if (error) throw error;
+      } catch (error) {
+        toast.warning(t("Directions will open, but the station email may not have been sent."), {
+          description: error instanceof Error ? error.message : t("Please try again."),
+        });
+      }
+    }
+
+    if (navigationWindow) {
+      navigationWindow.location.replace(navUrl);
+      return;
+    }
 
     // iOS: try the Google Maps app first, fall back to Apple Maps if
     // Google Maps isn't installed (Apple Maps is always present).
@@ -220,6 +240,16 @@ export const StationSheet = ({
                     }
                   />
                   <div className="text-sm text-muted-foreground">{station.address}</div>
+                </div>
+              )}
+              {station.totalSlots !== undefined && station.availableSlots !== undefined && (
+                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">
+                    {t(isSwap ? "Available service slots" : "Available charging slots")}
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {station.availableSlots} / {station.totalSlots}
+                  </span>
                 </div>
               )}
               <div className="text-xs text-muted-foreground">

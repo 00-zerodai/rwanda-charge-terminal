@@ -17,6 +17,7 @@ export type Database = {
       community_stations: {
         Row: {
           address: string
+          available_slots: number
           created_at: string
           id: string
           kind: string
@@ -27,9 +28,11 @@ export type Database = {
           photo_paths: string[]
           price_per_kwh: number | null
           swap_price: number | null
+          total_slots: number
         }
         Insert: {
           address?: string
+          available_slots?: number
           created_at?: string
           id?: string
           kind: string
@@ -40,9 +43,11 @@ export type Database = {
           photo_paths?: string[]
           price_per_kwh?: number | null
           swap_price?: number | null
+          total_slots?: number
         }
         Update: {
           address?: string
+          available_slots?: number
           created_at?: string
           id?: string
           kind?: string
@@ -53,6 +58,85 @@ export type Database = {
           photo_paths?: string[]
           price_per_kwh?: number | null
           swap_price?: number | null
+          total_slots?: number
+        }
+        Relationships: []
+      }
+      station_direction_events: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          station_id: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          station_id: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          station_id?: string
+        }
+        Relationships: []
+      }
+      station_owner_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          event_type: string
+          id: string
+          owner_id: string
+          read_at: string | null
+          station_id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          event_type: string
+          id?: string
+          owner_id: string
+          read_at?: string | null
+          station_id: string
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          owner_id?: string
+          read_at?: string | null
+          station_id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      station_plan_selections: {
+        Row: {
+          owner_id: string
+          payment_status: string
+          plan: string
+          station_id: string
+          updated_at: string
+        }
+        Insert: {
+          owner_id: string
+          payment_status?: string
+          plan: string
+          station_id: string
+          updated_at?: string
+        }
+        Update: {
+          owner_id?: string
+          payment_status?: string
+          plan?: string
+          station_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -80,6 +164,18 @@ export type Database = {
     }
     Functions: {
       get_visitor_count: { Args: never; Returns: number }
+      mark_station_notification_read: {
+        Args: { p_notification_id: string }
+        Returns: undefined
+      }
+      record_station_direction_request: {
+        Args: { p_station_id: string }
+        Returns: { event_recorded: boolean; owner_notified: boolean }[]
+      }
+      select_station_plan: {
+        Args: { p_plan: string; p_station_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
