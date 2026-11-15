@@ -1,10 +1,11 @@
 import { FormEvent, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { Zap } from "lucide-react";
+import { CircleHelp, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { TerminalButton } from "./TerminalButton";
 import { useLanguage } from "@/lib/i18n";
+import { SupportAssistantDialog } from "./SupportAssistantDialog";
 
 export const AuthPage = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -12,6 +13,7 @@ export const AuthPage = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const location = useLocation();
   const { t, language, setLanguage } = useLanguage();
   const isOwnerPortal = location.pathname === "/owner";
@@ -127,6 +129,13 @@ export const AuthPage = () => {
           >
             {t(isSignUp ? "Already have an account? Sign in" : "New to Volta? Create an account")}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary"
+          >
+            <CircleHelp size={15} /> {t("Help and support")}
+          </button>
           <p className="mt-5 text-center text-xs text-muted-foreground">
             {isOwnerPortal ? (
               <Link to="/" className="text-primary hover:underline">{t("Back to Volta")}</Link>
@@ -136,6 +145,7 @@ export const AuthPage = () => {
           </p>
         </div>
       </div>
+      <SupportAssistantDialog open={showHelp} onOpenChange={setShowHelp} />
     </div>
   );
 };

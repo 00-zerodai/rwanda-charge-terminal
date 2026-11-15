@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, LogOut, MapPin, Plus, Trash2 } from "lucide-react";
+import { Building2, CircleHelp, LogOut, MapPin, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AddStationDialog } from "@/components/AddStationDialog";
 import { TerminalButton } from "@/components/TerminalButton";
@@ -9,6 +9,7 @@ import { deleteCommunityStation, useCommunityStations } from "@/lib/community-st
 import { formatRwf, Station } from "@/lib/stations";
 import { useLanguage } from "@/lib/i18n";
 import type { Tables } from "@/integrations/supabase/types";
+import { SupportAssistantDialog } from "@/components/SupportAssistantDialog";
 
 const PLAN_OPTIONS = [
   {
@@ -39,6 +40,7 @@ export default function OwnerPortal({
   email: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const { language, setLanguage, t } = useLanguage();
   const stations = useCommunityStations().filter((station) => station.ownerId === userId);
   const [notifications, setNotifications] = useState<Tables<"station_owner_notifications">[]>([]);
@@ -214,6 +216,14 @@ export default function OwnerPortal({
             <Link to="/" className="inline-flex items-center rounded-lg border border-border px-3 text-sm text-foreground hover:bg-muted">
               {t("View map")}
             </Link>
+            <button
+              type="button"
+              onClick={() => setShowHelp(true)}
+              aria-label={t("Help and support")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2 text-sm text-foreground hover:bg-muted sm:px-3"
+            >
+              <CircleHelp size={15} /> <span className="hidden sm:inline">{t("Help")}</span>
+            </button>
             <button
               type="button"
               onClick={() => setLanguage(language === "en" ? "rw" : "en")}
@@ -427,6 +437,7 @@ export default function OwnerPortal({
           onClose={() => setShowAdd(false)}
         />
       )}
+      <SupportAssistantDialog open={showHelp} onOpenChange={setShowHelp} />
     </main>
   );
 }

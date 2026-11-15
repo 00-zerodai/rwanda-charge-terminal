@@ -5,7 +5,7 @@ import { StationSheet } from "@/components/StationSheet";
 import { Station, classifyStation, distanceMeters } from "@/lib/stations";
 import { AddStationDialog } from "@/components/AddStationDialog";
 import { SidePanel } from "@/components/SidePanel";
-import { Plus, User, Zap, RefreshCw, Info, X, Bike, Car, Filter, Building2 } from "lucide-react";
+import { Plus, User, Zap, RefreshCw, Info, X, Bike, Car, Filter, Building2, CircleHelp } from "lucide-react";
 import { GOOGLE_MAPS_API_KEY } from "@/lib/google-maps";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -18,6 +18,7 @@ import { NearbyStationsList } from "@/components/NearbyStationsList";
 import { useCommunityStations } from "@/lib/community-stations";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/lib/i18n";
+import { SupportAssistantDialog } from "@/components/SupportAssistantDialog";
 
 const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
   const { language, setLanguage, t } = useLanguage();
@@ -25,6 +26,7 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
   const [selected, setSelected] = useState<Station | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [routeInfo, setRouteInfo] = useState<{ distanceText: string; durationText: string } | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -187,6 +189,15 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
             </Link>
             <button
               type="button"
+              onClick={() => setShowHelp(true)}
+              aria-label={t("Help and support")}
+              className="h-10 sm:h-9 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted transition"
+            >
+              <CircleHelp size={15} />
+              <span className="hidden sm:inline">{t("Help")}</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setLanguage(language === "en" ? "rw" : "en")}
               aria-label={language === "en" ? "Hindura ururimi ujye mu Kinyarwanda" : "Switch language to English"}
               className="h-10 sm:h-9 rounded-lg border border-border px-2.5 text-xs font-semibold text-foreground hover:bg-muted transition"
@@ -347,6 +358,7 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
         hasUserLocation={!!userLoc}
       />
       <GrowthFeedbackDialog open={growthOpen} onOpenChange={setGrowthOpen} />
+      <SupportAssistantDialog open={showHelp} onOpenChange={setShowHelp} />
     </div>
   );
 };
