@@ -53,6 +53,7 @@ const AuthenticatedRoutes = () => {
   return (
     <>
       <Routes>
+        <Route path="/reset-password" element={<AuthPage />} />
         <Route path="/" element={<Index user={user} userId={session.user.id} />} />
         <Route
           path="/owner"
