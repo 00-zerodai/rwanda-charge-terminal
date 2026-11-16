@@ -13,10 +13,12 @@ export const StationSheet = ({
   station,
   routeInfo,
   onClose,
+  onNavigate,
 }: {
   station: Station | null;
   routeInfo?: { distanceText: string; durationText: string } | null;
   onClose: () => void;
+  onNavigate: (station: Station) => void;
 }) => {
   const { t } = useLanguage();
   const [saved, setSaved] = useLocalState<SavedStation[]>("cf_saved_stations", []);
@@ -29,22 +31,25 @@ export const StationSheet = ({
     [station],
   );
 
-  const openNavigation = async () => {
+  const notifyStationOwner = async () => {
+    if (!station?.ownerId) return;
+    try {
+      const { error } = await supabase.functions.invoke("notify-station-direction", {
+        body: { stationId: station.id },
+      });
+      if (error) throw error;
+    } catch (error) {
+      toast.warning(t("Navigation will start, but the station email may not have been sent."), {
+        description: error instanceof Error ? error.message : t("Please try again."),
+      });
+    }
+  };
+
+  const openExternalNavigation = async () => {
     if (!station || !navUrl) return;
     const navigationWindow = !isIOS && !isAndroid ? window.open("about:blank", "_blank") : null;
 
-    if (station.ownerId) {
-      try {
-        const { error } = await supabase.functions.invoke("notify-station-direction", {
-          body: { stationId: station.id },
-        });
-        if (error) throw error;
-      } catch (error) {
-        toast.warning(t("Directions will open, but the station email may not have been sent."), {
-          description: error instanceof Error ? error.message : t("Please try again."),
-        });
-      }
-    }
+    await notifyStationOwner();
 
     if (navigationWindow) {
       navigationWindow.location.replace(navUrl);
@@ -112,7 +117,7 @@ export const StationSheet = ({
           <div>
             <h2 className="text-base font-semibold text-foreground">{t("Select a station")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {t("Tap a charging marker to view details and open directions outside the map.")}
+              {t("Tap a charging marker to view its details and start in-app navigation.")}
             </p>
           </div>
         </div>
@@ -378,7 +383,11 @@ export const StationSheet = ({
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={openNavigation}
+                  onClick={() => {
+                    if (!station) return;
+                    onNavigate(station);
+                    void notifyStationOwner();
+                  }}
                   className="col-span-2 inline-flex items-center justify-center gap-2 h-11 px-5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
                 >
                   <Navigation size={16} /> {t("Navigate")}
@@ -394,7 +403,7 @@ export const StationSheet = ({
 
                 <button
                   type="button"
-                  onClick={openNavigation}
+                  onClick={openExternalNavigation}
                   className="col-span-2 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition pt-1"
                 >
                   <ExternalLink size={12} /> {t("Open in Google Maps")}

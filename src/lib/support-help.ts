@@ -2,7 +2,7 @@ const HELP_TOPICS = [
   {
     keywords: ["direction", "navigate", "map", "maps", "route", "gps", "inzira", "ikarita"],
     answer:
-      "Open a station and tap Navigate to open directions in your maps app. If your location is missing, allow location access in your browser and refresh Volta.",
+      "Open a station and tap Navigate to see Google Maps directions inside Volta.",
   },
   {
     keywords: ["available", "availability", "slot", "busy", "plug", "haboneka", "ahari"],

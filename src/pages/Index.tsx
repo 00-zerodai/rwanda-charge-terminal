@@ -19,6 +19,9 @@ import { useCommunityStations } from "@/lib/community-stations";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/lib/i18n";
 import { SupportAssistantDialog } from "@/components/SupportAssistantDialog";
+import { NavigationPanel } from "@/components/NavigationPanel";
+import { buildMapsUrl } from "@/lib/platform";
+import type { RouteResult } from "@/lib/directions";
 
 const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
   const { language, setLanguage, t } = useLanguage();
@@ -28,7 +31,10 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
   const [showPanel, setShowPanel] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [refresh, setRefresh] = useState(0);
-  const [routeInfo, setRouteInfo] = useState<{ distanceText: string; durationText: string } | null>(null);
+  const [routeInfo, setRouteInfo] = useState<Pick<RouteResult, "distanceText" | "durationText" | "steps"> | null>(null);
+  const [navigationStation, setNavigationStation] = useState<Station | null>(null);
+  const [navigationActive, setNavigationActive] = useState(false);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom: number; key: number } | null>(null);
   const [vehicleType, setVehicleType] = useLocalState<VehicleType | null>("cf_vehicle_type", null);
@@ -102,11 +108,21 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
     setNearestPanelDismissed(true);
     setSelected(station);
   };
+  const startNavigation = (station: Station) => {
+    setNavigationStation(station);
+    setNavigationError(null);
+    setNavigationActive(true);
+  };
+  const endNavigation = () => {
+    setNavigationActive(false);
+    setNavigationError(null);
+  };
+  const mapSelected = navigationActive ? navigationStation : selected;
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-background overflow-hidden">
       {/* Top bar */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-md z-20">
+      {!navigationActive && <header className="border-b border-border bg-card/80 backdrop-blur-md z-20">
         <div className="flex flex-wrap items-center justify-between px-4 py-3 gap-2">
           <div className="flex w-full items-center gap-2.5 min-w-0 sm:w-auto">
             <img
@@ -213,15 +229,22 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
             </button>
           </div>
         </div>
-      </header>
+      </header>}
 
-      <main className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        <section className="relative flex-1 min-h-0 p-3 lg:p-3 lg:flex-1 h-[55dvh] lg:h-auto">
+      <main className={navigationActive
+        ? "fixed inset-0 z-40 flex min-h-0 bg-background"
+        : "flex-1 min-h-0 flex flex-col lg:flex-row"}>
+        <section className={navigationActive
+          ? "absolute inset-0 min-h-0 p-0"
+          : "relative flex-1 min-h-0 p-3 lg:p-3 lg:flex-1 h-[55dvh] lg:h-auto"}>
           <StationMap
             apiKey={apiKey}
             onSelect={selectStation}
-            selected={selected}
+            selected={mapSelected}
             onRouteInfo={setRouteInfo}
+            navigationActive={navigationActive}
+            onNavigationError={setNavigationError}
+            userLocation={userLoc}
             refreshKey={refresh}
             flyTo={flyTo}
             vehicleType={vehicleType}
@@ -233,23 +256,23 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
             onStationsChange={setVisibleStations}
           />
 
-          <SearchBar
+          {!navigationActive && <SearchBar
             onPick={({ lat, lng }) =>
               setFlyTo({ lat, lng, zoom: 15, key: Date.now() })
             }
-          />
+          />}
 
-          <button
+          {!navigationActive && <button
             type="button"
             onClick={() => setShowAdd(true)}
             className="absolute bottom-16 left-5 z-10 inline-flex h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-elevated transition hover:bg-primary/90"
           >
             <Plus size={17} />
             {t("Add a station")}
-          </button>
+          </button>}
 
           {/* Legend — inline pill on sm+, toggle button on mobile */}
-          <div className="hidden sm:block pointer-events-none absolute right-6 bottom-3 bg-card/90 backdrop-blur border border-border rounded-xl px-3 py-2 text-xs space-y-1 shadow-soft z-10">
+          {!navigationActive && <div className="hidden sm:block pointer-events-none absolute right-6 bottom-3 bg-card/90 backdrop-blur border border-border rounded-xl px-3 py-2 text-xs space-y-1 shadow-soft z-10">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-primary" />
               <span className="text-muted-foreground">{t("Public stations")}</span>
@@ -258,8 +281,8 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
               <span className="h-2 w-2 rounded-full bg-[hsl(var(--success))]" />
               <span className="text-muted-foreground">{t("Community added")}</span>
             </div>
-          </div>
-          <div className="sm:hidden absolute right-5 bottom-3 z-10">
+          </div>}
+          {!navigationActive && <div className="sm:hidden absolute right-5 bottom-3 z-10">
             {legendOpen ? (
               <div className="bg-card/95 backdrop-blur border border-border rounded-xl px-3 py-2 text-xs space-y-1 shadow-soft relative">
                 <button
@@ -287,11 +310,22 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
                 <Info size={14} />
               </button>
             )}
-          </div>
+          </div>}
+
+          {navigationActive && navigationStation && (
+            <NavigationPanel
+              station={navigationStation}
+              route={routeInfo}
+              userLocation={userLoc}
+              error={navigationError}
+              mapsUrl={buildMapsUrl(navigationStation.lat, navigationStation.lng)}
+              onEnd={endNavigation}
+            />
+          )}
         </section>
 
         {/* Mobile: scrollable nearby list under the map */}
-        {isMobile && (
+        {!navigationActive && isMobile && (
           <section className="flex-1 min-h-0 overflow-y-auto">
             <NearbyStationsList
               stations={visibleStations}
@@ -307,10 +341,11 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
         )}
 
         {/* Desktop: persistent right side panel */}
-        {!isMobile && (
+        {!navigationActive && !isMobile && (
           <StationSheet
             station={detailStation}
             routeInfo={routeInfo}
+            onNavigate={startNavigation}
             onClose={() => {
               setSelected(null);
               setNearestPanelDismissed(true);
@@ -319,7 +354,7 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
         )}
 
         {/* Mobile: bottom sheet that only mounts when a station is selected */}
-        {isMobile && (
+        {!navigationActive && isMobile && (
           <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
             <SheetContent
               side="bottom"
@@ -336,6 +371,7 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
                 <StationSheet
                   station={selected}
                   routeInfo={routeInfo}
+                  onNavigate={startNavigation}
                   onClose={() => setSelected(null)}
                 />
               </div>

@@ -4,7 +4,7 @@ import { loadGoogleMaps, KIGALI_CENTER } from "@/lib/google-maps";
 import { Station, googlePlaceToStation, classifyStation, StationKind, ConnectorType, SpeedTier } from "@/lib/stations";
 import { distanceMeters, formatDistance, formatRwf, SPEED_LABEL } from "@/lib/stations";
 import type { MarkerClusterer as MarkerClustererType, Renderer } from "@googlemaps/markerclusterer";
-import { fetchRoute } from "@/lib/directions";
+import { fetchRoute, type RouteResult } from "@/lib/directions";
 import { useLanguage } from "@/lib/i18n";
 
 /* ---------- Pin SVGs: car+bolt (EV charger) and moto+bolt (battery swap) ---------- */
@@ -210,6 +210,9 @@ export const StationMap = ({
   onSelect,
   selected,
   onRouteInfo,
+  navigationActive = false,
+  onNavigationError,
+  userLocation,
   refreshKey = 0,
   flyTo,
   vehicleType,
@@ -223,7 +226,10 @@ export const StationMap = ({
   apiKey: string;
   onSelect: (s: Station) => void;
   selected?: Station | null;
-  onRouteInfo?: (info: { distanceText: string; durationText: string } | null) => void;
+  onRouteInfo?: (info: Pick<RouteResult, "distanceText" | "durationText" | "steps"> | null) => void;
+  navigationActive?: boolean;
+  onNavigationError?: (error: string | null) => void;
+  userLocation?: { lat: number; lng: number } | null;
   refreshKey?: number;
   flyTo?: { lat: number; lng: number; zoom?: number; key?: number } | null;
   vehicleType: "moto" | "car";
@@ -247,11 +253,65 @@ export const StationMap = ({
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const userLocationRef = useRef<google.maps.LatLngLiteral | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const lastRouteOriginRef = useRef<google.maps.LatLngLiteral | null>(null);
+  const lastRouteStationIdRef = useRef<string | null>(null);
+  const routeRequestRef = useRef(0);
+  const hasFitNavigationRef = useRef(false);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const onSelectRef = useRef(onSelect);
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
+
+  useEffect(() => {
+    hasFitNavigationRef.current = false;
+    if (!navigationActive) {
+      onNavigationError?.(null);
+      return;
+    }
+
+    if (!("geolocation" in navigator)) {
+      onNavigationError?.("Location is unavailable in this browser.");
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        userLocationRef.current = loc;
+        onUserLocation?.(loc);
+        onNavigationError?.(null);
+        const g = window.google;
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setPosition(loc);
+        } else if (g && mapRef.current) {
+          const dot = `data:image/svg+xml;utf8,${encodeURIComponent(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='#3b82f6' opacity='0.25'/><circle cx='11' cy='11' r='6' fill='#3b82f6' stroke='#fff' stroke-width='2'/></svg>",
+          )}`;
+          userMarkerRef.current = new g.maps.Marker({
+            position: loc,
+            map: mapRef.current,
+            icon: { url: dot, scaledSize: new g.maps.Size(22, 22), anchor: new g.maps.Point(11, 11) },
+            zIndex: 500,
+          });
+        }
+        if (mapRef.current) {
+          mapRef.current.panTo(loc);
+          if (mapRef.current.getZoom() < 16) mapRef.current.setZoom(16);
+        }
+      },
+      (err) => {
+        onNavigationError?.(
+          err.code === err.PERMISSION_DENIED
+            ? "Location access is blocked. Allow location access to follow your trip."
+            : "Couldn't get your location. Check your device location settings.",
+        );
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [navigationActive, onNavigationError, onUserLocation]);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const idleTimerRef = useRef<number | null>(null);
   const lastFetchKeyRef = useRef<string | null>(null);
@@ -843,7 +903,7 @@ export const StationMap = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantedKind]);
 
-  /* Draw / clear route when selected station changes */
+  /* Draw and refresh the Google route as the navigation origin changes. */
   useEffect(() => {
     const g = (window as any).google as typeof google | undefined;
     const renderer = directionsRendererRef.current;
@@ -851,29 +911,55 @@ export const StationMap = ({
     if (!g || !renderer) return;
 
     if (!selected) {
+      routeRequestRef.current += 1;
+      lastRouteOriginRef.current = null;
+      lastRouteStationIdRef.current = null;
       renderer.setMap(null);
       onRouteInfo?.(null);
       return;
     }
     const origin = userLocationRef.current;
     if (!origin) {
+      routeRequestRef.current += 1;
       onRouteInfo?.(null);
       return;
     }
+    if (
+      navigationActive &&
+      lastRouteStationIdRef.current === selected.id &&
+      lastRouteOriginRef.current &&
+      distanceMeters(lastRouteOriginRef.current, origin) < 100
+    ) {
+      return;
+    }
+
+    const requestId = ++routeRequestRef.current;
+    lastRouteOriginRef.current = origin;
+    lastRouteStationIdRef.current = selected.id;
     renderer.setMap(mapRef.current!);
     fetchRoute(g, origin, { lat: selected.lat, lng: selected.lng })
-      .then(({ result, distanceText, durationText }) => {
+      .then(({ result, distanceText, durationText, steps }) => {
+        if (requestId !== routeRequestRef.current) return;
         renderer.setDirections(result);
-        onRouteInfo?.({ distanceText, durationText });
+        if (navigationActive && !hasFitNavigationRef.current) {
+          const bounds = result.routes[0]?.bounds;
+          if (bounds) mapRef.current?.fitBounds(bounds, 72);
+          hasFitNavigationRef.current = true;
+        }
+        onRouteInfo?.({ distanceText, durationText, steps });
       })
       .catch(() => {
+        if (requestId !== routeRequestRef.current) return;
         renderer.setMap(null);
         onRouteInfo?.(null);
+        if (navigationActive) {
+          onNavigationError?.("Couldn't calculate a route using Google Maps. Try opening Google Maps.");
+        }
       });
-  }, [selected, onRouteInfo]);
+  }, [selected, navigationActive, userLocation?.lat, userLocation?.lng, onRouteInfo, onNavigationError]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-sm border border-border">
+    <div className={`relative h-full w-full overflow-hidden ${navigationActive ? "" : "rounded-sm border border-border"}`}>
       <div ref={containerRef} className="absolute inset-0 bg-background" />
 
       {/* HUD: top-left status pill */}
