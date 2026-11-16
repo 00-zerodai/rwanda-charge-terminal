@@ -5,7 +5,7 @@ import { StationSheet } from "@/components/StationSheet";
 import { Station, classifyStation, distanceMeters } from "@/lib/stations";
 import { AddStationDialog } from "@/components/AddStationDialog";
 import { SidePanel } from "@/components/SidePanel";
-import { Plus, User, Zap, RefreshCw, Info, X, Bike, Car, Filter, Building2, CircleHelp } from "lucide-react";
+import { Plus, User, Zap, RefreshCw, Info, X, Bike, Car, Filter, Building2, CircleHelp, Tag } from "lucide-react";
 import { GOOGLE_MAPS_API_KEY } from "@/lib/google-maps";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -195,6 +195,14 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
             >
               <Plus size={16} /> <span className="hidden xs:inline">{t("Add")}</span>
             </button>
+            <Link
+              to="/pricing"
+              aria-label={t("Pricing")}
+              className="h-10 sm:h-9 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted transition"
+            >
+              <Tag size={15} />
+              <span>{t("Pricing")}</span>
+            </Link>
             <Link
               to="/owner"
               aria-label={t("Owner portal")}

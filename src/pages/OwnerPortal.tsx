@@ -10,27 +10,7 @@ import { formatRwf, Station } from "@/lib/stations";
 import { useLanguage } from "@/lib/i18n";
 import type { Tables } from "@/integrations/supabase/types";
 import { SupportAssistantDialog } from "@/components/SupportAssistantDialog";
-
-const PLAN_OPTIONS = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: "20,000 RWF/mo",
-    features: "Verified pin + direct phone/WhatsApp button",
-  },
-  {
-    id: "pro_host",
-    name: "Pro Host",
-    price: "145,000 RWF/mo",
-    features: "Live Available/Busy toggle + photos + top map ranking",
-  },
-  {
-    id: "network",
-    name: "Network",
-    price: "300,000+ RWF/mo",
-    features: "Multi-charger management + monthly driver analytics",
-  },
-] as const;
+import { PLAN_OPTIONS } from "@/lib/pricing";
 
 export default function OwnerPortal({
   userId,

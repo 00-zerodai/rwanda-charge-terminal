@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import OwnerPortal from "./pages/OwnerPortal.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Pricing from "./pages/Pricing.tsx";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { AuthPage } from "@/components/AuthPage";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +56,7 @@ const AuthenticatedRoutes = () => {
       <Routes>
         <Route path="/reset-password" element={<AuthPage />} />
         <Route path="/" element={<Index user={user} userId={session.user.id} />} />
+        <Route path="/pricing" element={<Pricing />} />
         <Route
           path="/owner"
           element={
