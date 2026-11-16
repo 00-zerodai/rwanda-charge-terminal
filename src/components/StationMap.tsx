@@ -226,7 +226,7 @@ export const StationMap = ({
   apiKey: string;
   onSelect: (s: Station) => void;
   selected?: Station | null;
-  onRouteInfo?: (info: Pick<RouteResult, "distanceText" | "durationText" | "steps"> | null) => void;
+  onRouteInfo?: (info: Pick<RouteResult, "distanceText" | "durationText" | "distanceMeters" | "durationSeconds" | "steps"> | null) => void;
   navigationActive?: boolean;
   onNavigationError?: (error: string | null) => void;
   userLocation?: { lat: number; lng: number } | null;
@@ -297,7 +297,7 @@ export const StationMap = ({
         }
         if (mapRef.current) {
           mapRef.current.panTo(loc);
-          if (mapRef.current.getZoom() < 16) mapRef.current.setZoom(16);
+          if (mapRef.current.getZoom() < 18) mapRef.current.setZoom(18);
         }
       },
       (err) => {
@@ -924,13 +924,15 @@ export const StationMap = ({
       onRouteInfo?.(null);
       return;
     }
-    if (
-      navigationActive &&
-      lastRouteStationIdRef.current === selected.id &&
-      lastRouteOriginRef.current &&
-      distanceMeters(lastRouteOriginRef.current, origin) < 100
-    ) {
-      return;
+    if (navigationActive && lastRouteStationIdRef.current === selected.id && lastRouteOriginRef.current) {
+      const movedMeters = distanceMeters(lastRouteOriginRef.current, origin);
+      const path = renderer.getDirections()?.routes[0]?.overview_path ?? [];
+      const distanceFromRoute = path.reduce(
+        (nearest, point) => Math.min(nearest, distanceMeters(origin, { lat: point.lat(), lng: point.lng() })),
+        Infinity,
+      );
+      const hasLeftRoute = movedMeters >= 80 && distanceFromRoute > 100;
+      if (movedMeters < 250 && !hasLeftRoute) return;
     }
 
     const requestId = ++routeRequestRef.current;
@@ -938,7 +940,7 @@ export const StationMap = ({
     lastRouteStationIdRef.current = selected.id;
     renderer.setMap(mapRef.current!);
     fetchRoute(g, origin, { lat: selected.lat, lng: selected.lng })
-      .then(({ result, distanceText, durationText, steps }) => {
+      .then(({ result, distanceText, durationText, distanceMeters: routeDistanceMeters, durationSeconds, steps }) => {
         if (requestId !== routeRequestRef.current) return;
         renderer.setDirections(result);
         if (navigationActive && !hasFitNavigationRef.current) {
@@ -946,7 +948,13 @@ export const StationMap = ({
           if (bounds) mapRef.current?.fitBounds(bounds, 72);
           hasFitNavigationRef.current = true;
         }
-        onRouteInfo?.({ distanceText, durationText, steps });
+        onRouteInfo?.({
+          distanceText,
+          durationText,
+          distanceMeters: routeDistanceMeters,
+          durationSeconds,
+          steps,
+        });
       })
       .catch(() => {
         if (requestId !== routeRequestRef.current) return;
@@ -963,7 +971,7 @@ export const StationMap = ({
       <div ref={containerRef} className="absolute inset-0 bg-background" />
 
       {/* HUD: top-left status pill */}
-      <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full border border-border bg-card/90 backdrop-blur-md px-3 py-1.5 text-xs flex items-center gap-2 shadow-soft">
+      {!navigationActive && <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full border border-border bg-card/90 backdrop-blur-md px-3 py-1.5 text-xs flex items-center gap-2 shadow-soft">
         <span
           className={
             "h-1.5 w-1.5 rounded-full " +
@@ -983,10 +991,10 @@ export const StationMap = ({
           {status === "empty" && t("No stations here — try zooming out")}
           {status === "error" && t("Map failed to load")}
         </span>
-      </div>
+      </div>}
 
       {/* Legend chip — pin styles */}
-      {legendOpen && (
+      {!navigationActive && legendOpen && (
         <div className="absolute left-3 top-12 z-10 rounded-xl border border-border bg-card/95 backdrop-blur-md px-3 py-2 text-[11px] shadow-soft flex items-center gap-3">
           {wantedKind === "ev-car" ? (
             <div className="flex items-center gap-1.5">
@@ -1010,7 +1018,7 @@ export const StationMap = ({
       )}
 
       {/* Map controls */}
-      <div className="absolute left-3 bottom-3 z-10 flex gap-2">
+      {!navigationActive && <div className="absolute left-3 bottom-3 z-10 flex gap-2">
         <button
           onClick={() => {
             const loc = userLocationRef.current;
@@ -1039,7 +1047,7 @@ export const StationMap = ({
         >
           ◎ {t("Kigali")}
         </button>
-      </div>
+      </div>}
 
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/95 p-4 z-20">

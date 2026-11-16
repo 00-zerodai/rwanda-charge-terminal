@@ -4,11 +4,16 @@ export type RouteResult = {
   result: google.maps.DirectionsResult;
   distanceText: string;
   durationText: string;
+  distanceMeters: number;
+  durationSeconds: number;
   steps: {
     instruction: string;
     distanceText: string;
     durationText: string;
+    distanceMeters: number;
+    durationSeconds: number;
     endLocation: google.maps.LatLngLiteral;
+    path: google.maps.LatLngLiteral[];
   }[];
 };
 
@@ -35,11 +40,16 @@ export function fetchRoute(
           result,
           distanceText: leg?.distance?.text ?? "",
           durationText: leg?.duration?.text ?? "",
+          distanceMeters: leg?.distance?.value ?? 0,
+          durationSeconds: leg?.duration?.value ?? 0,
           steps: (leg?.steps ?? []).map((step) => ({
             instruction: step.instructions,
             distanceText: step.distance?.text ?? "",
             durationText: step.duration?.text ?? "",
+            distanceMeters: step.distance?.value ?? 0,
+            durationSeconds: step.duration?.value ?? 0,
             endLocation: { lat: step.end_location.lat(), lng: step.end_location.lng() },
+            path: step.path.map((point) => ({ lat: point.lat(), lng: point.lng() })),
           })),
         });
       },

@@ -20,7 +20,7 @@ import { Link } from "react-router-dom";
 import { useLanguage } from "@/lib/i18n";
 import { SupportAssistantDialog } from "@/components/SupportAssistantDialog";
 import { NavigationPanel } from "@/components/NavigationPanel";
-import { buildMapsUrl } from "@/lib/platform";
+import { buildGoogleMapsNavigationUrl } from "@/lib/platform";
 import type { RouteResult } from "@/lib/directions";
 
 const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
@@ -31,7 +31,7 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
   const [showPanel, setShowPanel] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [refresh, setRefresh] = useState(0);
-  const [routeInfo, setRouteInfo] = useState<Pick<RouteResult, "distanceText" | "durationText" | "steps"> | null>(null);
+  const [routeInfo, setRouteInfo] = useState<Pick<RouteResult, "distanceText" | "durationText" | "distanceMeters" | "durationSeconds" | "steps"> | null>(null);
   const [navigationStation, setNavigationStation] = useState<Station | null>(null);
   const [navigationActive, setNavigationActive] = useState(false);
   const [navigationError, setNavigationError] = useState<string | null>(null);
@@ -318,7 +318,7 @@ const Index = ({ user, userId }: { user: AppUser; userId: string }) => {
               route={routeInfo}
               userLocation={userLoc}
               error={navigationError}
-              mapsUrl={buildMapsUrl(navigationStation.lat, navigationStation.lng)}
+              mapsUrl={buildGoogleMapsNavigationUrl(navigationStation.lat, navigationStation.lng)}
               onEnd={endNavigation}
             />
           )}

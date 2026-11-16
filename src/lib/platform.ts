@@ -38,6 +38,9 @@ export const isInIframe = (): boolean => {
  */
 export const buildMapsUrl = (lat: number, lng: number): string =>
   `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+
+export const buildGoogleMapsNavigationUrl = (lat: number, lng: number): string =>
+  `${buildMapsUrl(lat, lng)}&dir_action=navigate`;
 /**
  * iOS-specific: try the Google Maps app via its URL scheme. If the page
  * doesn't lose visibility within ~800ms (i.e. the app didn't launch),
