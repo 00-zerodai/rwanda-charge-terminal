@@ -205,6 +205,45 @@ function fetchLandmarkFor(
 /* ---------- Component ---------- */
 const MAX_MARKERS = 500;
 
+function userLocationIcon(
+  g: typeof google,
+  navigating: boolean,
+  heading: number | null,
+  mapHeading: number,
+): google.maps.Icon {
+  const carRotation = heading === null ? 0 : heading - mapHeading;
+  const svg =
+    !navigating
+      ? "<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='#3b82f6' opacity='0.25'/><circle cx='11' cy='11' r='6' fill='#3b82f6' stroke='#fff' stroke-width='2'/></svg>"
+      : `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='64' viewBox='0 0 48 64'>
+          <ellipse cx='24' cy='36' rx='17' ry='24' fill='#0f172a' opacity='.28'/>
+          <g transform='rotate(${carRotation} 24 32)'>
+            <path d='M15 17 Q17 7 21 5 H27 Q31 7 33 17 L38 26 L39 46 Q39 51 35 52 H13 Q9 51 9 46 L10 26 Z' fill='#f8fafc' stroke='#334155' stroke-width='2'/>
+            <path d='M17 17 Q19 10 22 9 H26 Q29 10 31 17 L33 22 H15 Z' fill='#38bdf8' stroke='#334155' stroke-width='1.5'/>
+            <path d='M14 28 H34 L35 42 H13 Z' fill='#dbeafe' stroke='#64748b' stroke-width='1'/>
+            <path d='M12 27 H9 V36 H12 M36 27 H39 V36 H36' fill='#1e293b'/>
+            <path d='M13 46 H18 M30 46 H35' stroke='#fbbf24' stroke-width='3' stroke-linecap='round'/>
+            <path d='M19 54 L24 61 L29 54' fill='#2563eb' stroke='#fff' stroke-width='2' stroke-linejoin='round'/>
+          </g>
+        </svg>`;
+
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new g.maps.Size(48, 64),
+    anchor: new g.maps.Point(24, 32),
+  };
+}
+
+function pointAhead(position: google.maps.LatLngLiteral, heading: number | null): google.maps.LatLngLiteral {
+  if (heading === null) return position;
+  const radians = (heading * Math.PI) / 180;
+  const meters = 100;
+  const latitudeOffset = (Math.cos(radians) * meters) / 111_320;
+  const longitudeOffset =
+    (Math.sin(radians) * meters) / (111_320 * Math.cos((position.lat * Math.PI) / 180));
+  return { lat: position.lat + latitudeOffset, lng: position.lng + longitudeOffset };
+}
+
 export const StationMap = ({
   apiKey,
   onSelect,
@@ -253,6 +292,7 @@ export const StationMap = ({
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const userLocationRef = useRef<google.maps.LatLngLiteral | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const lastHeadingRef = useRef<number | null>(null);
   const lastRouteOriginRef = useRef<google.maps.LatLngLiteral | null>(null);
   const lastRouteStationIdRef = useRef<string | null>(null);
   const routeRequestRef = useRef(0);
@@ -265,10 +305,24 @@ export const StationMap = ({
 
   useEffect(() => {
     hasFitNavigationRef.current = false;
+    directionsRendererRef.current?.setOptions({
+      polylineOptions: {
+        strokeColor: navigationActive ? "#5125e7" : "#3b82f6",
+        strokeOpacity: 0.9,
+        strokeWeight: navigationActive ? 8 : 5,
+      },
+    });
     if (!navigationActive) {
+      lastHeadingRef.current = null;
+      userMarkerRef.current?.setIcon(userLocationIcon(window.google, false, null, 0));
+      mapRef.current?.setHeading(0);
+      mapRef.current?.setTilt(0);
       onNavigationError?.(null);
       return;
     }
+
+    mapRef.current?.setZoom(18);
+    mapRef.current?.setTilt(45);
 
     if (!("geolocation" in navigator)) {
       onNavigationError?.("Location is unavailable in this browser.");
@@ -282,21 +336,27 @@ export const StationMap = ({
         onUserLocation?.(loc);
         onNavigationError?.(null);
         const g = window.google;
+        const heading = pos.coords.heading;
+        if (heading !== null && Number.isFinite(heading)) lastHeadingRef.current = heading;
+        if (mapRef.current) {
+          if (lastHeadingRef.current !== null) mapRef.current.setHeading(lastHeadingRef.current);
+          mapRef.current.setTilt(45);
+        }
+        const mapHeading = mapRef.current?.getHeading() ?? 0;
+        const icon = userLocationIcon(g, true, lastHeadingRef.current, mapHeading);
         if (userMarkerRef.current) {
           userMarkerRef.current.setPosition(loc);
+          userMarkerRef.current.setIcon(icon);
         } else if (g && mapRef.current) {
-          const dot = `data:image/svg+xml;utf8,${encodeURIComponent(
-            "<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='#3b82f6' opacity='0.25'/><circle cx='11' cy='11' r='6' fill='#3b82f6' stroke='#fff' stroke-width='2'/></svg>",
-          )}`;
           userMarkerRef.current = new g.maps.Marker({
             position: loc,
             map: mapRef.current,
-            icon: { url: dot, scaledSize: new g.maps.Size(22, 22), anchor: new g.maps.Point(11, 11) },
+            icon,
             zIndex: 500,
           });
         }
         if (mapRef.current) {
-          mapRef.current.panTo(loc);
+          mapRef.current.panTo(pointAhead(loc, lastHeadingRef.current));
           if (mapRef.current.getZoom() < 18) mapRef.current.setZoom(18);
         }
       },
@@ -579,6 +639,7 @@ export const StationMap = ({
         const map = new g.maps.Map(containerRef.current, {
           center: KIGALI_CENTER,
           zoom: 13,
+          renderingType: g.maps.RenderingType.VECTOR,
           minZoom: 10,
           maxZoom: 18,
           disableDefaultUI: true,
@@ -625,13 +686,10 @@ export const StationMap = ({
               const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
               userLocationRef.current = loc;
               onUserLocation?.(loc);
-              const dot = `data:image/svg+xml;utf8,${encodeURIComponent(
-                `<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='11' cy='11' r='10' fill='#3b82f6' opacity='0.25'/><circle cx='11' cy='11' r='6' fill='#3b82f6' stroke='#fff' stroke-width='2'/></svg>`,
-              )}`;
               userMarkerRef.current = new g.maps.Marker({
                 position: loc,
                 map,
-                icon: { url: dot, scaledSize: new g.maps.Size(22, 22), anchor: new g.maps.Point(11, 11) },
+                icon: userLocationIcon(g, false, null, 0),
                 zIndex: 500,
               });
             },
